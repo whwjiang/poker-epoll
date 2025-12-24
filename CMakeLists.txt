@@ -11,12 +11,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_library(project_warnings INTERFACE)
 target_compile_features(project_warnings INTERFACE cxx_std_23)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_compile_options(project_warnings INTERFACE
     -Wall
     -Wextra
     -Werror
     -Weverything
+    -pthread
     -Wno-c++98-compat
     -Wno-c++98-compat-pedantic
   )
@@ -25,6 +29,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     -Wall
     -Wextra
     -Werror
+    -pthread
   )
 elseif(MSVC)
   target_compile_options(project_warnings INTERFACE
@@ -36,3 +41,18 @@ endif()
 add_library(poker_epoll INTERFACE)
 target_include_directories(poker_epoll INTERFACE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(poker_epoll INTERFACE project_warnings)
+
+include(CTest)
+enable_testing()
+
+find_package(Threads REQUIRED)
+find_package(GTest REQUIRED)
+include(GoogleTest)
+
+add_executable(cards_tests tests/cards_tests.cc)
+target_link_libraries(cards_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)
+gtest_discover_tests(cards_tests)
+
+add_executable(table_tests tests/table_tests.cc)
+target_link_libraries(table_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)
+gtest_discover_tests(table_tests)

@@ -29,6 +29,11 @@ public:
     next = 0;
   }
 
+  void reset() {
+    cards_ = kCardIdMap;
+    next = 0;
+  }
+
   // Generates a string representing the remaining cards in the deck.
   std::string to_string() const {
     auto space_fold = [](std::string a, Card c) {

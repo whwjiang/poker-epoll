@@ -35,6 +35,8 @@ constexpr char to_char(Suit s) {
     return 'h';
   case Suit::Spades:
     return 's';
+  default:
+    return 'e';
   }
 }
 
