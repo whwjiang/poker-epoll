@@ -43,5 +43,6 @@
 # build
 build/
 
-# vscode stuff
+# IDE related folders
 .vscode/
+.cache/

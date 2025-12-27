@@ -38,9 +38,9 @@ elseif(MSVC)
   )
 endif()
 
-add_library(poker_epoll INTERFACE)
-target_include_directories(poker_epoll INTERFACE ${PROJECT_SOURCE_DIR}/src)
-target_link_libraries(poker_epoll INTERFACE project_warnings)
+add_library(poker_epoll STATIC src/player.cc src/player_manager.cc src/table.cc)
+target_include_directories(poker_epoll PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(poker_epoll PUBLIC project_warnings)
 
 include(CTest)
 enable_testing()
