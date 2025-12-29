@@ -12,11 +12,11 @@ public:
 
   PlayerId id() const;
 
-  void add_chips(Chips chips);
-
+  Chips chips() const;
   bool sufficient_chips(Chips bet) const;
 
   void place_bet(Chips bet);
+  void add_chips(Chips chips);
 
 private:
   PlayerId id_;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstddef>
+// #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -63,10 +63,10 @@ struct Card {
   Suit suit;
 
   inline std::string to_string() const {
-    return "" + to_char(rank) + to_char(suit);
+    return std::string{""} + to_char(rank) + to_char(suit);
   }
 };
 
-CardId cardToId(Card c) { return 13 * std::to_underlying(c.suit) + std::to_underlying(c.rank); }
+// CardId cardToId(Card c) { return 13 * std::to_underlying(c.suit) + std::to_underlying(c.rank); }
 
 } // namespace cards

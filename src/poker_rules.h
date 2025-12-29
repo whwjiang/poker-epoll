@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 
-
 inline constexpr std::size_t kStreetSize = 1;
 inline constexpr std::size_t kHoleSize = 2;
 inline constexpr std::size_t kFlopSize = 3;

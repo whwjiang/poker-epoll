@@ -38,7 +38,8 @@ elseif(MSVC)
   )
 endif()
 
-add_library(poker_epoll STATIC src/player.cc src/player_manager.cc src/table.cc)
+add_library(poker_epoll STATIC src/player.cc src/player_manager.cc
+                              src/hand_evaluator.cc src/table.cc)
 target_include_directories(poker_epoll PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(poker_epoll PUBLIC project_warnings)
 
@@ -52,6 +53,10 @@ include(GoogleTest)
 add_executable(cards_tests tests/cards_tests.cc)
 target_link_libraries(cards_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)
 gtest_discover_tests(cards_tests)
+
+add_executable(player_manager_tests tests/player_manager_tests.cc)
+target_link_libraries(player_manager_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)
+gtest_discover_tests(player_manager_tests)
 
 add_executable(table_tests tests/table_tests.cc)
 target_link_libraries(table_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)

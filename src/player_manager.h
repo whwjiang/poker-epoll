@@ -5,7 +5,6 @@
 #include <expected>
 #include <optional>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "player.h"
@@ -28,8 +27,6 @@ public:
 
   void seat_held_players();
 
-  void finalize_leavers();
-
   auto get_first_player() const -> std::expected<PlayerId, PlayerMgmtError>;
 
   auto next_player(PlayerId p) const
@@ -39,12 +36,19 @@ public:
 
   std::size_t seated_count() const;
 
-  bool is_leaving(PlayerId id) const;
+  bool is_sat(PlayerId id) const;
+
+  // caller is responsible for validating id
+  bool has_enough_chips(PlayerId id, Chips bet) const;
+
+  Chips get_chips(PlayerId id) const;
+
+  void place_bet(PlayerId id, Chips bet);
+  void award_chips(PlayerId id, Chips amount);
 
 private:
   std::vector<std::optional<Player>> seats_;
   std::deque<std::size_t> open_seats_;
   std::unordered_map<PlayerId, std::size_t> index_;
   std::deque<PlayerId> holding_;
-  std::unordered_set<PlayerId> leaving_;
 };

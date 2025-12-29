@@ -20,8 +20,8 @@ auto PlayerManager::add_player(PlayerId id)
   return {};
 }
 
-// Stage a player to leave. If they are seated, mark them; if they are still
-// in holding, remove immediately.
+// Remove a player immediately. If they are in holding, drop them; if seated,
+// free their seat right away.
 auto PlayerManager::remove_player(PlayerId id)
     -> std::expected<void, PlayerMgmtError> {
   if (!index_.count(id)) {
@@ -35,7 +35,9 @@ auto PlayerManager::remove_player(PlayerId id)
     index_.erase(id);
     return {};
   }
-  leaving_.insert(id);
+  seats_[seat].reset();
+  open_seats_.push_back(seat);
+  index_.erase(id);
   return {};
 }
 
@@ -49,21 +51,10 @@ void PlayerManager::seat_held_players() {
   }
 }
 
-// Finalize removals (end of hand).
-void PlayerManager::finalize_leavers() {
-  for (auto id : leaving_) {
-    const auto seat = index_[id];
-    seats_[seat].reset();
-    open_seats_.push_back(seat);
-    index_.erase(id);
-  }
-  leaving_.clear();
-}
-
 auto PlayerManager::get_first_player() const
     -> std::expected<PlayerId, PlayerMgmtError> {
   for (auto it = seats_.begin(); it != seats_.end(); it = std::next(it)) {
-    if (*it && !is_leaving((*it)->id())) {
+    if (*it) {
       return (*it)->id();
     }
   }
@@ -77,11 +68,12 @@ auto PlayerManager::next_player(PlayerId p) const
   }
   const auto total = seats_.size();
   auto it = std::next(seats_.begin() + index_.at(p));
-  for (std::size_t checked = 0; checked < total; ++checked, it = std::next(it)) {
+  for (std::size_t checked = 0; checked < total;
+       ++checked, it = std::next(it)) {
     if (it == seats_.end()) {
       it = seats_.begin();
     }
-    if (*it && !is_leaving((*it)->id())) {
+    if (*it) {
       return (*it)->id();
     }
   }
@@ -91,7 +83,7 @@ auto PlayerManager::next_player(PlayerId p) const
 
 std::vector<PlayerId> PlayerManager::active_cycle_from(PlayerId start) const {
   std::vector<PlayerId> ordered;
-  if (!index_.count(start) || seats_.empty() || is_leaving(start)) {
+  if (!index_.count(start) || seats_.empty()) {
     return ordered;
   }
   ordered.push_back(start);
@@ -106,4 +98,23 @@ std::size_t PlayerManager::seated_count() const {
   return kMaxPlayers - open_seats_.size();
 }
 
-bool PlayerManager::is_leaving(PlayerId id) const { return leaving_.count(id) > 0; }
+
+bool PlayerManager::is_sat(PlayerId id) const {
+  return index_.contains(id) && seats_[index_.at(id)].has_value();
+}
+
+bool PlayerManager::has_enough_chips(PlayerId id, Chips bet) const {
+  return seats_[index_.at(id)]->sufficient_chips(bet);
+}
+
+Chips PlayerManager::get_chips(PlayerId id) const {
+  return seats_[index_.at(id)]->chips();
+}
+
+void PlayerManager::place_bet(PlayerId id, Chips bet) {
+  seats_[index_.at(id)]->place_bet(bet);
+}
+
+void PlayerManager::award_chips(PlayerId id, Chips amount) {
+  seats_[index_.at(id)]->add_chips(amount);
+}
