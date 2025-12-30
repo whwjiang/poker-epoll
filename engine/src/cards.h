@@ -67,6 +67,4 @@ struct Card {
   }
 };
 
-// CardId cardToId(Card c) { return 13 * std::to_underlying(c.suit) + std::to_underlying(c.rank); }
-
 } // namespace cards

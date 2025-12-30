@@ -2,6 +2,8 @@
 
 #include "player_manager.h"
 
+using namespace poker;
+
 TEST(PlayerManager, AddPlayerFailsWhenFull) {
   PlayerManager pm;
   for (std::size_t i = 0; i < kMaxPlayers; ++i) {

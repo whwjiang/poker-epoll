@@ -4,6 +4,8 @@
 #include <iterator>
 #include <numeric>
 
+namespace poker {
+
 PlayerManager::PlayerManager() : seats_(kMaxPlayers), open_seats_(kMaxPlayers) {
   std::iota(open_seats_.begin(), open_seats_.end(), 0);
 }
@@ -118,3 +120,5 @@ void PlayerManager::place_bet(PlayerId id, Chips bet) {
 void PlayerManager::award_chips(PlayerId id, Chips amount) {
   seats_[index_.at(id)]->add_chips(amount);
 }
+
+} // namespace poker

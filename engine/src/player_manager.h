@@ -10,6 +10,8 @@
 #include "player.h"
 #include "poker_rules.h"
 
+namespace poker {
+
 enum class PlayerMgmtError {
   not_enough_seats,
   invalid_id,
@@ -52,3 +54,5 @@ private:
   std::unordered_map<PlayerId, std::size_t> index_;
   std::deque<PlayerId> holding_;
 };
+
+} // namespace poker

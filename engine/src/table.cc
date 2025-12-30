@@ -5,6 +5,9 @@
 
 // #include <iterator>
 #include <algorithm>
+#include <limits>
+
+namespace poker {
 
 Table::Table(std::mt19937_64 &rng) : rng_(rng) {}
 
@@ -559,11 +562,11 @@ void Table::distribute_side_pots(std::vector<Event> &events) {
     if (pot.eligible.empty()) {
       continue;
     }
-    uint64_t best = 0;
+    uint64_t best = std::numeric_limits<uint64_t>::max();
     std::vector<PlayerId> winners;
     for (auto id : pot.eligible) {
       auto rank = hand_rank(id);
-      if (winners.empty() || rank > best) {
+      if (winners.empty() || rank < best) {
         winners.clear();
         winners.push_back(id);
         best = rank;
@@ -594,3 +597,5 @@ void Table::distribute_side_pots(std::vector<Event> &events) {
     }
   }
 }
+
+} // namespace poker

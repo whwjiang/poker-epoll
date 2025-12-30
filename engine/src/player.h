@@ -4,6 +4,8 @@
 
 #include "poker_rules.h"
 
+namespace poker {
+
 using PlayerId = uint64_t;
 
 class Player {
@@ -22,3 +24,5 @@ private:
   PlayerId id_;
   Chips purse_{0};
 };
+
+} // namespace poker

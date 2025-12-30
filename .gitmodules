@@ -1,0 +1,3 @@
+[submodule "PokerHandEvaluator"]
+	path = PokerHandEvaluator
+	url = https://github.com/HenryRLee/PokerHandEvaluator.git

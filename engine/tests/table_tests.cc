@@ -5,6 +5,8 @@
 
 #include "table.h"
 
+using namespace poker;
+
 namespace {
 
 template <typename T>

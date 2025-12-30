@@ -14,6 +14,8 @@
 #include "player_manager.h"
 #include "poker_rules.h"
 
+namespace poker {
+
 using TableId = uint64_t;
 
 enum class Phase : uint8_t { holding, preflop, flop, turn, river, showdown };
@@ -138,3 +140,5 @@ private:
   PlayerId button_{0};
   std::optional<HandState> hand_state_{std::nullopt};
 };
+
+} // namespace poker
