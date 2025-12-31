@@ -58,6 +58,9 @@ target_link_libraries(poker_epoll PUBLIC pheval)
 include(CTest)
 enable_testing()
 
+add_executable(poker_server engine/src/main.cpp)
+target_link_libraries(poker_server PRIVATE project_warnings)
+
 find_package(Threads REQUIRED)
 find_package(GTest REQUIRED)
 include(GoogleTest)

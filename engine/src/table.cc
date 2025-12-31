@@ -3,7 +3,6 @@
 #include "player.h"
 #include "poker_rules.h"
 
-// #include <iterator>
 #include <algorithm>
 #include <limits>
 
