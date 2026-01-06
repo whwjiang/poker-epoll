@@ -1,0 +1,15 @@
+syntax = "proto3";
+package poker.v1;
+
+message Action {
+  message Fold {}
+
+  message Bet {
+    uint64 amount = 2;
+  }
+
+  oneof payload {
+    Fold fold = 1;
+    Bet bet = 2;
+  }
+}

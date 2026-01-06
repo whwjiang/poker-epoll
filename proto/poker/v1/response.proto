@@ -1,0 +1,16 @@
+syntax = "proto3";
+package poker.v1;
+
+import "errors.proto";
+import "events.proto";
+
+message ServerMessage {
+  oneof payload {
+    Event event = 1;
+    Error error = 2;
+  }
+}
+
+message Response {
+  repeated ServerMessage messages = 1;
+}

@@ -1,0 +1,32 @@
+syntax = "proto3";
+package poker.v1;
+
+enum Rank {
+  RANK_UNSPECIFIED = 0;
+  RANK_TWO = 1;
+  RANK_THREE = 2;
+  RANK_FOUR = 3;
+  RANK_FIVE = 4;
+  RANK_SIX = 5;
+  RANK_SEVEN = 6;
+  RANK_EIGHT = 7;
+  RANK_NINE = 8;
+  RANK_TEN = 9;
+  RANK_JACK = 10;
+  RANK_QUEEN = 11;
+  RANK_KING = 12;
+  RANK_ACE = 13;
+}
+
+enum Suit {
+  SUIT_UNSPECIFIED = 0;
+  SUIT_CLUBS = 1;
+  SUIT_DIAMONDS = 2;
+  SUIT_HEARTS = 3;
+  SUIT_SPADES = 4;
+}
+
+message Card {
+  Rank rank = 1;
+  Suit suit = 2;
+}

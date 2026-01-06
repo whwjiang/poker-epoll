@@ -1,0 +1,69 @@
+syntax = "proto3";
+package poker.v1;
+
+import "cards.proto";
+
+message Event {
+  enum Phase {
+    PHASE_UNSPECIFIED = 0;
+    PHASE_HOLDING = 1;
+    PHASE_PREFLOP = 2;
+    PHASE_FLOP = 3;
+    PHASE_TURN = 4;
+    PHASE_RIVER = 5;
+    PHASE_SHOWDOWN = 6;
+  }
+
+  message PlayerAdded {
+    uint64 who = 1;
+  }
+
+  message PlayerRemoved {
+    uint64 who = 1;
+  }
+
+  message BetPlaced {
+    uint64 who = 1;
+    uint64 amount = 2;
+  }
+
+  message TurnAdvanced {
+    uint64 next = 1;
+  }
+
+  message PhaseAdvanced {
+    Phase next = 1;
+  }
+
+  message WonPot {
+    uint64 who = 1;
+    uint64 amount = 2;
+  }
+
+  message HandStarted {}
+
+  message DealtHole {
+    uint64 who = 1;
+    repeated Card hole = 2;
+  }
+
+  message DealtFlop {
+    repeated Card flop = 1;
+  }
+
+  message DealtStreet {
+    Card street = 1;
+  }
+  oneof payload {
+    PlayerAdded player_added = 1;
+    PlayerRemoved player_removed = 2;
+    BetPlaced bet_placed = 3;
+    TurnAdvanced turn_advanced = 4;
+    PhaseAdvanced phase_advanced = 5;
+    WonPot won_pot = 6;
+    HandStarted hand_started = 7;
+    DealtHole dealt_hole = 8;
+    DealtFlop dealt_flop = 9;
+    DealtStreet dealt_street = 10;
+  }
+}

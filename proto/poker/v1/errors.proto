@@ -1,0 +1,32 @@
+syntax = "proto3";
+package poker.v1;
+
+message Error {
+  enum ServerError {
+    SERVERERROR_UNSPECIFIED = 0;
+    SERVERERROR_TOO_MANY_CLIENTS = 1;
+    SERVERERROR_ALL_TABLES_FULL = 2;
+  }
+  enum PlayerMgmtError {
+    PLAYERMGMTERROR_UNSPECIFIED = 0;
+    PLAYERMGMTERROR_NOTENOUGHSEATS = 1;
+    PLAYERMGMTERROR_INVALIDID = 2;
+    PLAYERMGMTERROR_PLAYERNOTFOUND = 3;
+    PLAYERMGMTERROR_NOPLAYERS = 4;
+  }
+  enum GameError {
+    GAMEERROR_UNSPECIFIED = 0;
+    GAMEERROR_INVALIDACTION = 1;
+    GAMEERROR_HANDINPLAY = 2;
+    GAMEERROR_NOTENOUGHPLAYERS = 3;
+    GAMEERROR_INSUFFICIENTFUNDS = 4;
+    GAMEERROR_BETTOOLOW = 5;
+    GAMEERROR_OUTOFTURN = 6;
+    GAMEERROR_NOSUCHPLAYER = 7;
+  }
+  oneof payload {
+    PlayerMgmtError player_mgmt_error = 1;
+    GameError game_error = 2;
+    ServerError server_error = 3;
+  }
+}

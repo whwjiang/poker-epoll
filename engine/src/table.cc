@@ -10,7 +10,9 @@ namespace poker {
 
 Table::Table(std::mt19937_64 &rng) : rng_(rng) {}
 
-bool Table::hand_in_progress() { return hand_state_.has_value(); }
+bool Table::has_open_seat() const { return players_.seated_count() < kMaxPlayers; }
+
+bool Table::hand_in_progress() const { return hand_state_.has_value(); }
 
 auto Table::add_player(PlayerId id) -> std::expected<Event, PlayerMgmtError> {
   return players_.add_player(id).transform([&] { return PlayerAdded{id}; });

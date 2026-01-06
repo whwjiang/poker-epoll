@@ -7,17 +7,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include "errors.h"
 #include "player.h"
 #include "poker_rules.h"
 
 namespace poker {
-
-enum class PlayerMgmtError {
-  not_enough_seats,
-  invalid_id,
-  player_not_found,
-  no_players
-};
 
 class PlayerManager {
 public:

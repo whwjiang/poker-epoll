@@ -13,6 +13,35 @@ target_compile_features(project_warnings INTERFACE cxx_std_23)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+find_package(Protobuf REQUIRED)
+
+set(PROTO_FILES
+  ${PROJECT_SOURCE_DIR}/proto/poker/v1/actions.proto
+  ${PROJECT_SOURCE_DIR}/proto/poker/v1/cards.proto
+  ${PROJECT_SOURCE_DIR}/proto/poker/v1/errors.proto
+  ${PROJECT_SOURCE_DIR}/proto/poker/v1/events.proto
+  ${PROJECT_SOURCE_DIR}/proto/poker/v1/response.proto
+)
+
+set(PROTOBUF_IMPORT_DIRS ${PROJECT_SOURCE_DIR}/proto)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+protobuf_generate(
+  LANGUAGE python
+  PROTOC_OUT_DIR ${PROJECT_SOURCE_DIR}/client
+  OUT_VAR PROTO_PY
+  PROTOS ${PROTO_FILES}
+  IMPORT_DIRS ${PROTOBUF_IMPORT_DIRS}
+  APPEND_PATH
+)
+add_custom_target(poker_proto_python DEPENDS ${PROTO_PY})
+
+add_library(poker_proto STATIC ${PROTO_SRCS} ${PROTO_HDRS})
+target_link_libraries(poker_proto PUBLIC protobuf::libprotobuf)
+target_include_directories(poker_proto
+  PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${PROJECT_SOURCE_DIR}/proto
+)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_compile_options(project_warnings INTERFACE
@@ -39,9 +68,10 @@ elseif(MSVC)
 endif()
 
 add_library(poker_epoll STATIC engine/src/player.cc engine/src/player_manager.cc
-                              engine/src/hand_evaluator.cc engine/src/table.cc)
+                              engine/src/hand_evaluator.cc engine/src/table.cc
+                              engine/src/proto_translate.cc)
 target_include_directories(poker_epoll PUBLIC ${PROJECT_SOURCE_DIR}/engine/src)
-target_link_libraries(poker_epoll PUBLIC project_warnings)
+target_link_libraries(poker_epoll PUBLIC project_warnings poker_proto)
 
 set(PHEVAL_ROOT ${PROJECT_SOURCE_DIR}/PokerHandEvaluator/cpp)
 set(BUILD_CARD5 OFF CACHE BOOL "" FORCE)
@@ -58,8 +88,8 @@ target_link_libraries(poker_epoll PUBLIC pheval)
 include(CTest)
 enable_testing()
 
-add_executable(poker_server engine/src/main.cpp)
-target_link_libraries(poker_server PRIVATE project_warnings)
+add_executable(poker_server engine/src/main.cc engine/src/server.cc)
+target_link_libraries(poker_server PRIVATE project_warnings poker_proto poker_epoll)
 
 find_package(Threads REQUIRED)
 find_package(GTest REQUIRED)
