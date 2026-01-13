@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x65rrors.proto\x12\x08poker.v1\"\xcf\x05\n\x05\x45rror\x12<\n\x11player_mgmt_error\x18\x01 \x01(\x0e\x32\x1f.poker.v1.Error.PlayerMgmtErrorH\x00\x12/\n\ngame_error\x18\x02 \x01(\x0e\x32\x19.poker.v1.Error.GameErrorH\x00\x12\x33\n\x0cserver_error\x18\x03 \x01(\x0e\x32\x1b.poker.v1.Error.ServerErrorH\x00\"m\n\x0bServerError\x12\x1b\n\x17SERVERERROR_UNSPECIFIED\x10\x00\x12 \n\x1cSERVERERROR_TOO_MANY_CLIENTS\x10\x01\x12\x1f\n\x1bSERVERERROR_ALL_TABLES_FULL\x10\x02\"\xb8\x01\n\x0fPlayerMgmtError\x12\x1f\n\x1bPLAYERMGMTERROR_UNSPECIFIED\x10\x00\x12\"\n\x1ePLAYERMGMTERROR_NOTENOUGHSEATS\x10\x01\x12\x1d\n\x19PLAYERMGMTERROR_INVALIDID\x10\x02\x12\"\n\x1ePLAYERMGMTERROR_PLAYERNOTFOUND\x10\x03\x12\x1d\n\x19PLAYERMGMTERROR_NOPLAYERS\x10\x04\"\xec\x01\n\tGameError\x12\x19\n\x15GAMEERROR_UNSPECIFIED\x10\x00\x12\x1b\n\x17GAMEERROR_INVALIDACTION\x10\x01\x12\x18\n\x14GAMEERROR_HANDINPLAY\x10\x02\x12\x1e\n\x1aGAMEERROR_NOTENOUGHPLAYERS\x10\x03\x12\x1f\n\x1bGAMEERROR_INSUFFICIENTFUNDS\x10\x04\x12\x17\n\x13GAMEERROR_BETTOOLOW\x10\x05\x12\x17\n\x13GAMEERROR_OUTOFTURN\x10\x06\x12\x1a\n\x16GAMEERROR_NOSUCHPLAYER\x10\x07\x42\t\n\x07payloadb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x65rrors.proto\x12\x08poker.v1\"\xf0\x05\n\x05\x45rror\x12<\n\x11player_mgmt_error\x18\x01 \x01(\x0e\x32\x1f.poker.v1.Error.PlayerMgmtErrorH\x00\x12/\n\ngame_error\x18\x02 \x01(\x0e\x32\x19.poker.v1.Error.GameErrorH\x00\x12\x33\n\x0cserver_error\x18\x03 \x01(\x0e\x32\x1b.poker.v1.Error.ServerErrorH\x00\"\x8d\x01\n\x0bServerError\x12\x1b\n\x17SERVERERROR_UNSPECIFIED\x10\x00\x12 \n\x1cSERVERERROR_TOO_MANY_CLIENTS\x10\x01\x12\x1f\n\x1bSERVERERROR_ALL_TABLES_FULL\x10\x02\x12\x1e\n\x1aSERVERERROR_ILLEGAL_ACTION\x10\x03\"\xb8\x01\n\x0fPlayerMgmtError\x12\x1f\n\x1bPLAYERMGMTERROR_UNSPECIFIED\x10\x00\x12\"\n\x1ePLAYERMGMTERROR_NOTENOUGHSEATS\x10\x01\x12\x1d\n\x19PLAYERMGMTERROR_INVALIDID\x10\x02\x12\"\n\x1ePLAYERMGMTERROR_PLAYERNOTFOUND\x10\x03\x12\x1d\n\x19PLAYERMGMTERROR_NOPLAYERS\x10\x04\"\xec\x01\n\tGameError\x12\x19\n\x15GAMEERROR_UNSPECIFIED\x10\x00\x12\x1b\n\x17GAMEERROR_INVALIDACTION\x10\x01\x12\x18\n\x14GAMEERROR_HANDINPLAY\x10\x02\x12\x1e\n\x1aGAMEERROR_NOTENOUGHPLAYERS\x10\x03\x12\x1f\n\x1bGAMEERROR_INSUFFICIENTFUNDS\x10\x04\x12\x17\n\x13GAMEERROR_BETTOOLOW\x10\x05\x12\x17\n\x13GAMEERROR_OUTOFTURN\x10\x06\x12\x1a\n\x16GAMEERROR_NOSUCHPLAYER\x10\x07\x42\t\n\x07payloadb\x06proto3')
 
 
 
@@ -33,11 +33,11 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   _ERROR._serialized_start=27
-  _ERROR._serialized_end=746
-  _ERROR_SERVERERROR._serialized_start=200
-  _ERROR_SERVERERROR._serialized_end=309
-  _ERROR_PLAYERMGMTERROR._serialized_start=312
-  _ERROR_PLAYERMGMTERROR._serialized_end=496
-  _ERROR_GAMEERROR._serialized_start=499
-  _ERROR_GAMEERROR._serialized_end=735
+  _ERROR._serialized_end=779
+  _ERROR_SERVERERROR._serialized_start=201
+  _ERROR_SERVERERROR._serialized_end=342
+  _ERROR_PLAYERMGMTERROR._serialized_start=345
+  _ERROR_PLAYERMGMTERROR._serialized_end=529
+  _ERROR_GAMEERROR._serialized_start=532
+  _ERROR_GAMEERROR._serialized_end=768
 # @@protoc_insertion_point(module_scope)

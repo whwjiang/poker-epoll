@@ -41,6 +41,10 @@ struct WonPot {
   PlayerId who;
   Chips amount;
 };
+struct PlayerChips {
+  PlayerId who;
+  Chips chips;
+};
 struct SidePot {
   Chips amount;
   std::vector<PlayerId> eligible;
@@ -56,9 +60,14 @@ struct DealtFlop {
 struct DealtStreet {
   cards::Card street;
 };
-using Event = std::variant<PlayerAdded, PlayerRemoved, BetPlaced, TurnAdvanced,
-                           PhaseAdvanced, WonPot, HandStarted, DealtHole,
-                           DealtFlop, DealtStreet>;
+struct ShowdownHand {
+  PlayerId who;
+  std::array<cards::Card, kHoleSize> hole;
+};
+using Event =
+    std::variant<PlayerAdded, PlayerRemoved, BetPlaced, TurnAdvanced,
+                 PhaseAdvanced, WonPot, PlayerChips, HandStarted, DealtHole,
+                 DealtFlop, DealtStreet, ShowdownHand>;
 
 struct Fold {
   PlayerId id;

@@ -160,6 +160,9 @@ auto Table::handle_new_hand() -> std::expected<std::vector<Event>, GameError> {
   std::vector<Event> events;
   events.push_back(HandStarted{});
   events.push_back(PhaseAdvanced{Phase::preflop});
+  for (auto id : hand_state_->participants) {
+    events.push_back(PlayerChips{id, players_.get_chips(id)});
+  }
   for (const auto &[id, hole] : hand_state_->player_holes) {
     events.push_back({DealtHole{id, hole}});
   }
@@ -302,6 +305,7 @@ auto Table::handle(const Bet &b)
   // prepare the response
   std::vector<Event> res;
   res.push_back(BetPlaced{id, bet});
+  res.push_back(PlayerChips{id, players_.get_chips(id)});
   return res;
 }
 
@@ -433,6 +437,7 @@ void Table::post_blind(PlayerId id, Chips amount, std::vector<Event> &events) {
   hand_state_->previous_bet =
       std::max(hand_state_->previous_bet, hand_state_->active_bets[id]);
   events.push_back(BetPlaced{id, blind});
+  events.push_back(PlayerChips{id, players_.get_chips(id)});
 }
 
 void Table::reveal_remaining_board(std::vector<Event> &events) {
@@ -561,9 +566,22 @@ void Table::award_chips(PlayerId id, Chips amount, std::vector<Event> &events) {
   }
   players_.award_chips(id, amount);
   events.push_back(WonPot{id, amount});
+  events.push_back(PlayerChips{id, players_.get_chips(id)});
 }
 
 void Table::distribute_side_pots(std::vector<Event> &events) {
+  if (hand_state_) {
+    for (auto id : hand_state_->participants) {
+      auto it = hand_state_->player_state.find(id);
+      if (it == hand_state_->player_state.end()) {
+        continue;
+      }
+      if (it->second == PlayerState::active ||
+          it->second == PlayerState::all_in) {
+        events.push_back(ShowdownHand{id, hand_state_->player_holes.at(id)});
+      }
+    }
+  }
   auto pots = build_side_pots();
   for (const auto &pot : pots) {
     if (pot.eligible.empty()) {

@@ -194,8 +194,26 @@ auto Server::start_hand(const poker::TableId id)
   if (!tables_.contains(id)) {
     return std::unexpected(poker::ServerError::illegal_action);
   }
-  auto table = tables_.at(id);
-  return table.handle_new_hand();
+  return tables_.at(id).handle_new_hand();
+}
+
+auto Server::maybe_start_hand(const poker::TableId id)
+    -> std::optional<std::vector<poker::Event>> {
+  auto it = tables_.find(id);
+  if (it == tables_.end()) {
+    return std::nullopt;
+  }
+  auto &table = it->second;
+  if (!table.can_start_hand()) {
+    return std::nullopt;
+  }
+  auto res = table.handle_new_hand();
+  if (!res) {
+    spdlog::warn("Failed to auto-start hand at table {}: {}", id,
+                 poker::to_string(res.error()));
+    return std::nullopt;
+  }
+  return std::move(*res);
 }
 
 auto Server::apply_action(const ::poker::v1::Action a, poker::PlayerId id)

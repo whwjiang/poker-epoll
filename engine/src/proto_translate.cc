@@ -192,6 +192,10 @@ auto to_proto_event(const Event &ev) -> ::poker::v1::Event {
           auto *msg = out.mutable_won_pot();
           msg->set_who(e.who);
           msg->set_amount(e.amount);
+        } else if constexpr (std::is_same_v<T, PlayerChips>) {
+          auto *msg = out.mutable_player_chips();
+          msg->set_who(e.who);
+          msg->set_chips(e.chips);
         } else if constexpr (std::is_same_v<T, HandStarted>) {
           out.mutable_hand_started();
         } else if constexpr (std::is_same_v<T, DealtHole>) {
@@ -207,6 +211,12 @@ auto to_proto_event(const Event &ev) -> ::poker::v1::Event {
           }
         } else if constexpr (std::is_same_v<T, DealtStreet>) {
           *out.mutable_dealt_street()->mutable_street() = to_proto_card(e.street);
+        } else if constexpr (std::is_same_v<T, ShowdownHand>) {
+          auto *msg = out.mutable_showdown_hand();
+          msg->set_who(e.who);
+          for (const auto &c : e.hole) {
+            *msg->add_hole() = to_proto_card(c);
+          }
         }
       },
       ev);

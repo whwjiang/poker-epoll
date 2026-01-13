@@ -15,7 +15,7 @@ _sym_db = _symbol_database.Default()
 import cards_pb2 as cards__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x65vents.proto\x12\x08poker.v1\x1a\x0b\x63\x61rds.proto\"\xa4\x08\n\x05\x45vent\x12\x33\n\x0cplayer_added\x18\x01 \x01(\x0b\x32\x1b.poker.v1.Event.PlayerAddedH\x00\x12\x37\n\x0eplayer_removed\x18\x02 \x01(\x0b\x32\x1d.poker.v1.Event.PlayerRemovedH\x00\x12/\n\nbet_placed\x18\x03 \x01(\x0b\x32\x19.poker.v1.Event.BetPlacedH\x00\x12\x35\n\rturn_advanced\x18\x04 \x01(\x0b\x32\x1c.poker.v1.Event.TurnAdvancedH\x00\x12\x37\n\x0ephase_advanced\x18\x05 \x01(\x0b\x32\x1d.poker.v1.Event.PhaseAdvancedH\x00\x12)\n\x07won_pot\x18\x06 \x01(\x0b\x32\x16.poker.v1.Event.WonPotH\x00\x12\x33\n\x0chand_started\x18\x07 \x01(\x0b\x32\x1b.poker.v1.Event.HandStartedH\x00\x12/\n\ndealt_hole\x18\x08 \x01(\x0b\x32\x19.poker.v1.Event.DealtHoleH\x00\x12/\n\ndealt_flop\x18\t \x01(\x0b\x32\x19.poker.v1.Event.DealtFlopH\x00\x12\x33\n\x0c\x64\x65\x61lt_street\x18\n \x01(\x0b\x32\x1b.poker.v1.Event.DealtStreetH\x00\x1a\x1a\n\x0bPlayerAdded\x12\x0b\n\x03who\x18\x01 \x01(\x04\x1a\x1c\n\rPlayerRemoved\x12\x0b\n\x03who\x18\x01 \x01(\x04\x1a(\n\tBetPlaced\x12\x0b\n\x03who\x18\x01 \x01(\x04\x12\x0e\n\x06\x61mount\x18\x02 \x01(\x04\x1a\x1c\n\x0cTurnAdvanced\x12\x0c\n\x04next\x18\x01 \x01(\x04\x1a\x34\n\rPhaseAdvanced\x12#\n\x04next\x18\x01 \x01(\x0e\x32\x15.poker.v1.Event.Phase\x1a%\n\x06WonPot\x12\x0b\n\x03who\x18\x01 \x01(\x04\x12\x0e\n\x06\x61mount\x18\x02 \x01(\x04\x1a\r\n\x0bHandStarted\x1a\x36\n\tDealtHole\x12\x0b\n\x03who\x18\x01 \x01(\x04\x12\x1c\n\x04hole\x18\x02 \x03(\x0b\x32\x0e.poker.v1.Card\x1a)\n\tDealtFlop\x12\x1c\n\x04\x66lop\x18\x01 \x03(\x0b\x32\x0e.poker.v1.Card\x1a-\n\x0b\x44\x65\x61ltStreet\x12\x1e\n\x06street\x18\x01 \x01(\x0b\x32\x0e.poker.v1.Card\"\x89\x01\n\x05Phase\x12\x15\n\x11PHASE_UNSPECIFIED\x10\x00\x12\x11\n\rPHASE_HOLDING\x10\x01\x12\x11\n\rPHASE_PREFLOP\x10\x02\x12\x0e\n\nPHASE_FLOP\x10\x03\x12\x0e\n\nPHASE_TURN\x10\x04\x12\x0f\n\x0bPHASE_RIVER\x10\x05\x12\x12\n\x0ePHASE_SHOWDOWN\x10\x06\x42\t\n\x07payloadb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x65vents.proto\x12\x08poker.v1\x1a\x0b\x63\x61rds.proto\"\xf6\t\n\x05\x45vent\x12\x33\n\x0cplayer_added\x18\x01 \x01(\x0b\x32\x1b.poker.v1.Event.PlayerAddedH\x00\x12\x37\n\x0eplayer_removed\x18\x02 \x01(\x0b\x32\x1d.poker.v1.Event.PlayerRemovedH\x00\x12/\n\nbet_placed\x18\x03 \x01(\x0b\x32\x19.poker.v1.Event.BetPlacedH\x00\x12\x35\n\rturn_advanced\x18\x04 \x01(\x0b\x32\x1c.poker.v1.Event.TurnAdvancedH\x00\x12\x37\n\x0ephase_advanced\x18\x05 \x01(\x0b\x32\x1d.poker.v1.Event.PhaseAdvancedH\x00\x12)\n\x07won_pot\x18\x06 \x01(\x0b\x32\x16.poker.v1.Event.WonPotH\x00\x12\x33\n\x0cplayer_chips\x18\x07 \x01(\x0b\x32\x1b.poker.v1.Event.PlayerChipsH\x00\x12\x33\n\x0chand_started\x18\x08 \x01(\x0b\x32\x1b.poker.v1.Event.HandStartedH\x00\x12/\n\ndealt_hole\x18\t \x01(\x0b\x32\x19.poker.v1.Event.DealtHoleH\x00\x12/\n\ndealt_flop\x18\n \x01(\x0b\x32\x19.poker.v1.Event.DealtFlopH\x00\x12\x33\n\x0c\x64\x65\x61lt_street\x18\x0b \x01(\x0b\x32\x1b.poker.v1.Event.DealtStreetH\x00\x12\x35\n\rshowdown_hand\x18\x0c \x01(\x0b\x32\x1c.poker.v1.Event.ShowdownHandH\x00\x1a\x1a\n\x0bPlayerAdded\x12\x0b\n\x03who\x18\x01 \x01(\x04\x1a\x1c\n\rPlayerRemoved\x12\x0b\n\x03who\x18\x01 \x01(\x04\x1a(\n\tBetPlaced\x12\x0b\n\x03who\x18\x01 \x01(\x04\x12\x0e\n\x06\x61mount\x18\x02 \x01(\x04\x1a\x1c\n\x0cTurnAdvanced\x12\x0c\n\x04next\x18\x01 \x01(\x04\x1a\x34\n\rPhaseAdvanced\x12#\n\x04next\x18\x01 \x01(\x0e\x32\x15.poker.v1.Event.Phase\x1a%\n\x06WonPot\x12\x0b\n\x03who\x18\x01 \x01(\x04\x12\x0e\n\x06\x61mount\x18\x02 \x01(\x04\x1a)\n\x0bPlayerChips\x12\x0b\n\x03who\x18\x01 \x01(\x04\x12\r\n\x05\x63hips\x18\x02 \x01(\x04\x1a\r\n\x0bHandStarted\x1a\x36\n\tDealtHole\x12\x0b\n\x03who\x18\x01 \x01(\x04\x12\x1c\n\x04hole\x18\x02 \x03(\x0b\x32\x0e.poker.v1.Card\x1a)\n\tDealtFlop\x12\x1c\n\x04\x66lop\x18\x01 \x03(\x0b\x32\x0e.poker.v1.Card\x1a-\n\x0b\x44\x65\x61ltStreet\x12\x1e\n\x06street\x18\x01 \x01(\x0b\x32\x0e.poker.v1.Card\x1a\x39\n\x0cShowdownHand\x12\x0b\n\x03who\x18\x01 \x01(\x04\x12\x1c\n\x04hole\x18\x02 \x03(\x0b\x32\x0e.poker.v1.Card\"\x89\x01\n\x05Phase\x12\x15\n\x11PHASE_UNSPECIFIED\x10\x00\x12\x11\n\rPHASE_HOLDING\x10\x01\x12\x11\n\rPHASE_PREFLOP\x10\x02\x12\x0e\n\nPHASE_FLOP\x10\x03\x12\x0e\n\nPHASE_TURN\x10\x04\x12\x0f\n\x0bPHASE_RIVER\x10\x05\x12\x12\n\x0ePHASE_SHOWDOWN\x10\x06\x42\t\n\x07payloadb\x06proto3')
 
 
 
@@ -26,10 +26,12 @@ _EVENT_BETPLACED = _EVENT.nested_types_by_name['BetPlaced']
 _EVENT_TURNADVANCED = _EVENT.nested_types_by_name['TurnAdvanced']
 _EVENT_PHASEADVANCED = _EVENT.nested_types_by_name['PhaseAdvanced']
 _EVENT_WONPOT = _EVENT.nested_types_by_name['WonPot']
+_EVENT_PLAYERCHIPS = _EVENT.nested_types_by_name['PlayerChips']
 _EVENT_HANDSTARTED = _EVENT.nested_types_by_name['HandStarted']
 _EVENT_DEALTHOLE = _EVENT.nested_types_by_name['DealtHole']
 _EVENT_DEALTFLOP = _EVENT.nested_types_by_name['DealtFlop']
 _EVENT_DEALTSTREET = _EVENT.nested_types_by_name['DealtStreet']
+_EVENT_SHOWDOWNHAND = _EVENT.nested_types_by_name['ShowdownHand']
 _EVENT_PHASE = _EVENT.enum_types_by_name['Phase']
 Event = _reflection.GeneratedProtocolMessageType('Event', (_message.Message,), {
 
@@ -75,6 +77,13 @@ Event = _reflection.GeneratedProtocolMessageType('Event', (_message.Message,), {
     })
   ,
 
+  'PlayerChips' : _reflection.GeneratedProtocolMessageType('PlayerChips', (_message.Message,), {
+    'DESCRIPTOR' : _EVENT_PLAYERCHIPS,
+    '__module__' : 'events_pb2'
+    # @@protoc_insertion_point(class_scope:poker.v1.Event.PlayerChips)
+    })
+  ,
+
   'HandStarted' : _reflection.GeneratedProtocolMessageType('HandStarted', (_message.Message,), {
     'DESCRIPTOR' : _EVENT_HANDSTARTED,
     '__module__' : 'events_pb2'
@@ -102,6 +111,13 @@ Event = _reflection.GeneratedProtocolMessageType('Event', (_message.Message,), {
     # @@protoc_insertion_point(class_scope:poker.v1.Event.DealtStreet)
     })
   ,
+
+  'ShowdownHand' : _reflection.GeneratedProtocolMessageType('ShowdownHand', (_message.Message,), {
+    'DESCRIPTOR' : _EVENT_SHOWDOWNHAND,
+    '__module__' : 'events_pb2'
+    # @@protoc_insertion_point(class_scope:poker.v1.Event.ShowdownHand)
+    })
+  ,
   'DESCRIPTOR' : _EVENT,
   '__module__' : 'events_pb2'
   # @@protoc_insertion_point(class_scope:poker.v1.Event)
@@ -113,36 +129,42 @@ _sym_db.RegisterMessage(Event.BetPlaced)
 _sym_db.RegisterMessage(Event.TurnAdvanced)
 _sym_db.RegisterMessage(Event.PhaseAdvanced)
 _sym_db.RegisterMessage(Event.WonPot)
+_sym_db.RegisterMessage(Event.PlayerChips)
 _sym_db.RegisterMessage(Event.HandStarted)
 _sym_db.RegisterMessage(Event.DealtHole)
 _sym_db.RegisterMessage(Event.DealtFlop)
 _sym_db.RegisterMessage(Event.DealtStreet)
+_sym_db.RegisterMessage(Event.ShowdownHand)
 
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   _EVENT._serialized_start=40
-  _EVENT._serialized_end=1100
-  _EVENT_PLAYERADDED._serialized_start=567
-  _EVENT_PLAYERADDED._serialized_end=593
-  _EVENT_PLAYERREMOVED._serialized_start=595
-  _EVENT_PLAYERREMOVED._serialized_end=623
-  _EVENT_BETPLACED._serialized_start=625
-  _EVENT_BETPLACED._serialized_end=665
-  _EVENT_TURNADVANCED._serialized_start=667
-  _EVENT_TURNADVANCED._serialized_end=695
-  _EVENT_PHASEADVANCED._serialized_start=697
-  _EVENT_PHASEADVANCED._serialized_end=749
-  _EVENT_WONPOT._serialized_start=751
-  _EVENT_WONPOT._serialized_end=788
-  _EVENT_HANDSTARTED._serialized_start=790
-  _EVENT_HANDSTARTED._serialized_end=803
-  _EVENT_DEALTHOLE._serialized_start=805
-  _EVENT_DEALTHOLE._serialized_end=859
-  _EVENT_DEALTFLOP._serialized_start=861
-  _EVENT_DEALTFLOP._serialized_end=902
-  _EVENT_DEALTSTREET._serialized_start=904
-  _EVENT_DEALTSTREET._serialized_end=949
-  _EVENT_PHASE._serialized_start=952
-  _EVENT_PHASE._serialized_end=1089
+  _EVENT._serialized_end=1310
+  _EVENT_PLAYERADDED._serialized_start=675
+  _EVENT_PLAYERADDED._serialized_end=701
+  _EVENT_PLAYERREMOVED._serialized_start=703
+  _EVENT_PLAYERREMOVED._serialized_end=731
+  _EVENT_BETPLACED._serialized_start=733
+  _EVENT_BETPLACED._serialized_end=773
+  _EVENT_TURNADVANCED._serialized_start=775
+  _EVENT_TURNADVANCED._serialized_end=803
+  _EVENT_PHASEADVANCED._serialized_start=805
+  _EVENT_PHASEADVANCED._serialized_end=857
+  _EVENT_WONPOT._serialized_start=859
+  _EVENT_WONPOT._serialized_end=896
+  _EVENT_PLAYERCHIPS._serialized_start=898
+  _EVENT_PLAYERCHIPS._serialized_end=939
+  _EVENT_HANDSTARTED._serialized_start=941
+  _EVENT_HANDSTARTED._serialized_end=954
+  _EVENT_DEALTHOLE._serialized_start=956
+  _EVENT_DEALTHOLE._serialized_end=1010
+  _EVENT_DEALTFLOP._serialized_start=1012
+  _EVENT_DEALTFLOP._serialized_end=1053
+  _EVENT_DEALTSTREET._serialized_start=1055
+  _EVENT_DEALTSTREET._serialized_end=1100
+  _EVENT_SHOWDOWNHAND._serialized_start=1102
+  _EVENT_SHOWDOWNHAND._serialized_end=1159
+  _EVENT_PHASE._serialized_start=1162
+  _EVENT_PHASE._serialized_end=1299
 # @@protoc_insertion_point(module_scope)

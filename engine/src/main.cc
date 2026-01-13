@@ -46,6 +46,19 @@ bool try_parse_frame(Conn *c, std::string &out_msg) {
   return true;
 }
 
+std::string action_to_string(const ::poker::v1::Action &action) {
+  using Payload = ::poker::v1::Action::PayloadCase;
+  switch (action.payload_case()) {
+  case Payload::kFold:
+    return "fold";
+  case Payload::kBet:
+    return "bet " + std::to_string(action.bet().amount());
+  case Payload::PAYLOAD_NOT_SET:
+  default:
+    return "unknown";
+  }
+}
+
 void handle_sigint(int) { g_stop = 1; }
 
 int main() {
@@ -122,12 +135,8 @@ int main() {
           auto tid = cr.conn->table_id;
           if (cr.result) {
             state.push_table(tid, Outbound{*cr.result});
-            auto start_result = state.start_hand(tid);
-            if (start_result) {
+            if (auto start_result = state.maybe_start_hand(tid)) {
               state.push_table(cr.conn->table_id, Outbound{*start_result});
-            } else {
-              spdlog::info("Could not start game at table {}: {}", tid,
-                           poker::to_string(start_result.error()));
             }
           } else {
             state.push_one(cr.conn->player_id, Outbound{cr.result.error()});
@@ -165,6 +174,8 @@ int main() {
                            c->player_id);
               state.push_one(c->player_id, poker::GameError::invalid_action);
             } else {
+              spdlog::info("Received action from player {}: {}", c->player_id,
+                            action_to_string(action));
               auto ar = state.apply_action(action, c->player_id);
               if (!ar) {
                 spdlog::info("Action rejected for player {}: {}", c->player_id,
@@ -172,6 +183,9 @@ int main() {
               }
               if (ar) {
                 state.push_table(c->table_id, Outbound{*ar});
+                if (auto next = state.maybe_start_hand(c->table_id)) {
+                  state.push_table(c->table_id, Outbound{*next});
+                }
               } else {
                 state.push_one(c->player_id, Outbound{ar.error()});
               }
