@@ -8,12 +8,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+
 add_library(project_warnings INTERFACE)
 target_compile_features(project_warnings INTERFACE cxx_std_23)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 find_package(Protobuf REQUIRED)
+add_subdirectory(${PROJECT_SOURCE_DIR}/spdlog)
 
 set(PROTO_FILES
   ${PROJECT_SOURCE_DIR}/proto/poker/v1/actions.proto
@@ -89,7 +95,7 @@ include(CTest)
 enable_testing()
 
 add_executable(poker_server engine/src/main.cc engine/src/server.cc)
-target_link_libraries(poker_server PRIVATE project_warnings poker_proto poker_epoll)
+target_link_libraries(poker_server PRIVATE project_warnings poker_proto poker_epoll spdlog::spdlog)
 
 find_package(Threads REQUIRED)
 find_package(GTest REQUIRED)

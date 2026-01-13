@@ -32,7 +32,7 @@ TEST(PlayerManager, SeatHeldPlayersAndCycle) {
   PlayerManager pm;
   ASSERT_TRUE(pm.add_player(1));
   ASSERT_TRUE(pm.add_player(2));
-  EXPECT_EQ(pm.seated_count(), 2u);
+  EXPECT_EQ(pm.num_players(), 2u);
 
   pm.seat_held_players();
   EXPECT_TRUE(pm.is_sat(1));
@@ -53,13 +53,13 @@ TEST(PlayerManager, RemoveSeatedPlayerFreesSeatImmediately) {
 
   ASSERT_TRUE(pm.remove_player(1));
   EXPECT_FALSE(pm.is_sat(1));
-  EXPECT_EQ(pm.seated_count(), 1u);
+  EXPECT_EQ(pm.num_players(), 1u);
 
   auto first = pm.get_first_player();
   ASSERT_TRUE(first.has_value());
   EXPECT_EQ(*first, 2u);
 
-  EXPECT_EQ(pm.seated_count(), 1u);
+  EXPECT_EQ(pm.num_players(), 1u);
 }
 
 TEST(PlayerManager, RemoveInvalidPlayerReturnsError) {

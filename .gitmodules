@@ -1,3 +1,6 @@
 [submodule "PokerHandEvaluator"]
 	path = PokerHandEvaluator
 	url = https://github.com/HenryRLee/PokerHandEvaluator.git
+[submodule "spdlog"]
+	path = spdlog
+	url = https://github.com/gabime/spdlog.git

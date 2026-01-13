@@ -10,9 +10,15 @@ namespace poker {
 
 Table::Table(std::mt19937_64 &rng) : rng_(rng) {}
 
-bool Table::has_open_seat() const { return players_.seated_count() < kMaxPlayers; }
+bool Table::has_open_seat() const {
+  return players_.num_players() < kMaxPlayers;
+}
 
 bool Table::hand_in_progress() const { return hand_state_.has_value(); }
+
+bool Table::can_start_hand() const {
+  return !hand_in_progress() && players_.num_players() >= 2;
+}
 
 auto Table::add_player(PlayerId id) -> std::expected<Event, PlayerMgmtError> {
   return players_.add_player(id).transform([&] { return PlayerAdded{id}; });
@@ -65,11 +71,11 @@ auto Table::on_action(Action action)
     -> std::expected<std::vector<Event>, GameError> {
   auto result = std::visit(
       [&](auto &&a) -> std::expected<std::vector<Event>, GameError> {
-        if (!players_.is_sat(a.id)) {
-          return std::unexpected(GameError::no_such_player);
-        }
         if (!hand_state_) {
           return std::unexpected(GameError::invalid_action);
+        }
+        if (!players_.is_sat(a.id)) {
+          return std::unexpected(GameError::no_such_player);
         }
         prune_turn_queue();
         if (hand_state_->turn_queue.empty()) {
@@ -123,7 +129,7 @@ auto Table::on_action(Action action)
 // assume that all actions will happen serially. any driver needs to ensure
 // this so as to avoid race conditions or inconsistent state
 auto Table::handle_new_hand() -> std::expected<std::vector<Event>, GameError> {
-  if (players_.seated_count() < 2) {
+  if (players_.num_players() < 2) {
     return std::unexpected(GameError::not_enough_players);
   }
   if (hand_in_progress()) {

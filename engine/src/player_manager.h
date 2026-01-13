@@ -30,7 +30,7 @@ public:
 
   std::vector<PlayerId> active_cycle_from(PlayerId start) const;
 
-  std::size_t seated_count() const;
+  std::size_t num_players() const;
 
   bool is_sat(PlayerId id) const;
 

@@ -14,6 +14,8 @@ auto to_proto_server_error(ServerError err) -> ::poker::v1::Error::ServerError {
     return Proto::Error_ServerError_SERVERERROR_TOO_MANY_CLIENTS;
   case ServerError::all_tables_full:
     return Proto::Error_ServerError_SERVERERROR_ALL_TABLES_FULL;
+  case ServerError::illegal_action:
+    return Proto::Error_ServerError_SERVERERROR_ILLEGAL_ACTION;
   case ServerError::unspecified:
   default:
     return Proto::Error_ServerError_SERVERERROR_UNSPECIFIED;
@@ -137,6 +139,20 @@ auto to_proto_card(const cards::Card &card) -> ::poker::v1::Card {
 }
 
 } // namespace
+
+auto from_proto_action(const ::poker::v1::Action &action, PlayerId id)
+    -> std::expected<Action, GameError> {
+  using Payload = ::poker::v1::Action::PayloadCase;
+  switch (action.payload_case()) {
+  case Payload::kFold:
+    return Action{Fold{id}};
+  case Payload::kBet:
+    return Action{Bet{id, action.bet().amount()}};
+  case Payload::PAYLOAD_NOT_SET:
+  default:
+    return std::unexpected(GameError::invalid_action);
+  }
+}
 
 auto to_proto_error(const Error &err) -> ::poker::v1::Error {
   ::poker::v1::Error out;

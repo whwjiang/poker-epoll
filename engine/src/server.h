@@ -8,6 +8,7 @@
 #include <variant>
 #include <vector>
 
+#include "actions.pb.h"
 #include "errors.h"
 #include "player.h"
 #include "table.h"
@@ -24,6 +25,8 @@ struct Conn {
   poker::PlayerId player_id{0};
   bool is_dead{true};
 };
+
+void update_interest(Conn *const c, int epfd);
 
 using Outbound =
     std::variant<poker::Event, std::vector<poker::Event>, poker::Error>;
@@ -45,10 +48,14 @@ public:
   // method to the appropriate audience
   // returning a raw Conn* inside the ConnectResult isn't great, but the server
   // is single threaded so we don't risk much
-  auto handle_connect(int cfd) -> ConnectResult;
-  void handle_close(poker::PlayerId id);
-  void push_one(poker::PlayerId id, const Outbound &out);
-  void push_table(poker::TableId id, const Outbound &out);
+  auto handle_connect(const int cfd) -> ConnectResult;
+  void handle_close(const poker::PlayerId id);
+  auto start_hand(const poker::TableId id)
+      -> std::expected<std::vector<poker::Event>, poker::Error>;
+  auto apply_action(const ::poker::v1::Action action, poker::PlayerId)
+      -> std::expected<std::vector<poker::Event>, poker::Error>;
+  void push_one(const poker::PlayerId id, const Outbound &out);
+  void push_table(const poker::TableId id, const Outbound &out);
 
 private:
   int epfd_;

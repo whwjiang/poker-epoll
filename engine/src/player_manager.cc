@@ -96,7 +96,7 @@ std::vector<PlayerId> PlayerManager::active_cycle_from(PlayerId start) const {
   return ordered;
 }
 
-std::size_t PlayerManager::seated_count() const {
+std::size_t PlayerManager::num_players() const {
   return kMaxPlayers - open_seats_.size();
 }
 

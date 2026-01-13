@@ -94,6 +94,7 @@ class Table {
 public:
   explicit Table(std::mt19937_64 &rng);
   bool has_open_seat() const;
+  bool can_start_hand() const;
   bool hand_in_progress() const;
   auto add_player(PlayerId id) -> std::expected<Event, PlayerMgmtError>;
   auto remove_player(PlayerId id)

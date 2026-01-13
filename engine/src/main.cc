@@ -1,14 +1,17 @@
 #include <csignal>
 #include <cstdlib>
+#include <cstring>
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <print>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "actions.pb.h"
+#include "errors.h"
 #include "server.h"
+#include "spdlog/spdlog.h"
 
 constexpr int PORT = 65432;
 constexpr int MAX_EVENTS = 64;
@@ -21,10 +24,34 @@ int set_nonblocking(int fd) {
 
 volatile sig_atomic_t g_stop = 0;
 
+bool try_parse_frame(Conn *c, std::string &out_msg) {
+  // Step 1: header
+  if (c->in_size == 0) {
+    if (c->in.size() < sizeof(uint32_t))
+      return false;
+    uint32_t net_len = 0;
+    std::memcpy(&net_len, c->in.data(), sizeof(net_len));
+    c->in_size = ntohl(net_len);
+    c->in_off = sizeof(uint32_t);
+  }
+
+  // Step 2: body
+  if (c->in.size() < c->in_off + c->in_size)
+    return false;
+
+  out_msg.assign(c->in.data() + c->in_off, c->in_size);
+  c->in.erase(0, c->in_off + c->in_size);
+  c->in_off = 0;
+  c->in_size = 0;
+  return true;
+}
+
 void handle_sigint(int) { g_stop = 1; }
 
 int main() {
   std::signal(SIGINT, handle_sigint);
+  spdlog::set_level(spdlog::level::info);
+  spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
 
   int listenfd = socket(AF_INET, SOCK_STREAM, 0);
   if (listenfd < 0)
@@ -58,7 +85,7 @@ int main() {
 
   epoll_event events[MAX_EVENTS];
 
-  std::println("Started server on port {}", PORT);
+  spdlog::info("Started server on port {}", PORT);
 
   while (!g_stop) {
     int n = epoll_wait(state.epfd(), events, MAX_EVENTS, -1);
@@ -67,14 +94,14 @@ int main() {
         continue;
       exit(1);
     }
-    std::println("New batch of events");
+    spdlog::debug("Processing epoll batch with {} events", n);
     for (int i = 0; i < n; ++i) {
       auto &e = events[i];
 
       /* Error path */
       if (e.events & (EPOLLERR | EPOLLHUP)) {
         if (e.data.fd != state.listenfd()) {
-          close(e.data.fd);
+          close(e.data.fd); // TODO: do we leak resources here?
         }
         continue;
       }
@@ -92,9 +119,19 @@ int main() {
           }
           set_nonblocking(cfd);
           auto cr = state.handle_connect(cfd);
-          state.push_table(cr.conn->table_id,
-                           cr.result ? Outbound{*cr.result}
-                                     : Outbound{cr.result.error()});
+          auto tid = cr.conn->table_id;
+          if (cr.result) {
+            state.push_table(tid, Outbound{*cr.result});
+            auto start_result = state.start_hand(tid);
+            if (start_result) {
+              state.push_table(cr.conn->table_id, Outbound{*start_result});
+            } else {
+              spdlog::info("Could not start game at table {}: {}", tid,
+                           poker::to_string(start_result.error()));
+            }
+          } else {
+            state.push_one(cr.conn->player_id, Outbound{cr.result.error()});
+          }
         }
         continue;
       }
@@ -108,17 +145,38 @@ int main() {
         while (true) {
           ssize_t r = read(c->fd, buf, sizeof(buf));
           if (r == 0) {
+            spdlog::info("Peer closed connection for player {}", c->player_id);
             state.handle_close(c->player_id);
             goto next_event;
           }
           if (r < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
               break;
+            spdlog::warn("Read error on fd {}: {}", c->fd, strerror(errno));
             state.handle_close(c->player_id);
             goto next_event;
           }
           c->in.append(buf, r);
-          std::println("read {} bytes from {}", r, c->fd);
+          std::string msg;
+          while (try_parse_frame(c, msg)) {
+            ::poker::v1::Action action;
+            if (!action.ParseFromString(msg)) {
+              spdlog::warn("Invalid action payload from player {}",
+                           c->player_id);
+              state.push_one(c->player_id, poker::GameError::invalid_action);
+            } else {
+              auto ar = state.apply_action(action, c->player_id);
+              if (!ar) {
+                spdlog::info("Action rejected for player {}: {}", c->player_id,
+                             poker::to_string(ar.error()));
+              }
+              if (ar) {
+                state.push_table(c->table_id, Outbound{*ar});
+              } else {
+                state.push_one(c->player_id, Outbound{ar.error()});
+              }
+            }
+          }
         }
       }
 
@@ -129,28 +187,20 @@ int main() {
           if (w < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
               break;
+            spdlog::warn("Write error on fd {}: {}", c->fd, strerror(errno));
             state.handle_close(c->player_id);
             goto next_event;
           }
           c->out.erase(0, w);
-          std::println("wrote {} bytes to {}", w, c->fd);
+          spdlog::debug("Wrote {} bytes to fd {}", w, c->fd);
         }
       }
 
       /* Update interest mask */
-      {
-        epoll_event nev{};
-        nev.data.ptr = c;
-        nev.events = EPOLLIN | EPOLLET;
-        if (!c->out.empty()) {
-          nev.events |= EPOLLOUT;
-        } else if (c->is_dead) {
-          // close the connection if we have written all bytes
-          // and the connection is dead
-          state.handle_close(c->player_id);
-          goto next_event;
-        }
-        epoll_ctl(state.epfd(), EPOLL_CTL_MOD, c->fd, &nev);
+      if (c->is_dead) {
+        state.handle_close(c->player_id);
+      } else {
+        update_interest(c, state.epfd());
       }
 
     next_event:;
