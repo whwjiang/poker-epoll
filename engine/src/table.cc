@@ -14,6 +14,8 @@ bool Table::has_open_seat() const {
   return players_.num_players() < kMaxPlayers;
 }
 
+bool Table::is_empty() const { return players_.num_players() == 0; }
+
 bool Table::hand_in_progress() const { return hand_state_.has_value(); }
 
 bool Table::can_start_hand() const {
