@@ -95,7 +95,8 @@ target_link_libraries(poker_epoll PUBLIC pheval)
 include(CTest)
 enable_testing()
 
-add_executable(poker_server engine/src/main.cc engine/src/server.cc)
+add_executable(poker_server engine/src/main.cc engine/src/server.cc
+                            engine/src/reactor_epoll.cc)
 target_link_libraries(poker_server PRIVATE project_warnings poker_proto poker_epoll spdlog::spdlog)
 
 find_package(Threads REQUIRED)

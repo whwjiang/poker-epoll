@@ -5,7 +5,6 @@
 #include <random>
 #include <span>
 #include <spdlog/spdlog.h>
-#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -97,28 +96,16 @@ void publish(const Outbound &out, std::span<Conn *const> conns) {
 
 } // namespace
 
-void update_interest(Conn *const c, int epfd) {
-  epoll_event nev{};
-  nev.data.ptr = c;
-  nev.events = EPOLLIN | EPOLLET | (!c->out.empty() * EPOLLOUT);
-  spdlog::debug("Conn fd {} EPOLLOUT: {}", c->fd,
-                static_cast<int>(nev.events & EPOLLOUT));
-  epoll_ctl(epfd, EPOLL_CTL_MOD, c->fd, &nev);
-}
-
 Conn::Conn(int cfd, poker::PlayerId id) : fd(cfd), player_id(id) {}
 
-Server::Server(int epfd, int listenfd) : epfd_(epfd), listenfd_(listenfd) {}
+Server::Server(int listenfd) : listenfd_(listenfd) {}
 
 Server::~Server() {
   for (auto &[_, conn] : connections_) {
     close(conn->fd);
   }
-  close(epfd_);
   close(listenfd_);
 }
-
-int Server::epfd() const { return epfd_; }
 
 int Server::listenfd() const { return listenfd_; }
 
@@ -129,11 +116,6 @@ auto Server::handle_connect(const int cfd) -> ConnectResult {
   auto conn = c.get();
   connections_[new_pid] = std::move(c);
 
-  // register it with epoll
-  epoll_event cev{};
-  cev.events = EPOLLIN | EPOLLOUT | EPOLLET;
-  cev.data.ptr = conn;
-  epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &cev);
   spdlog::info("Accepted connection on fd {}", cfd);
   // if we exceed max number of connected clients, return an error
   if (connections_.size() > kMaxConnections) {
@@ -176,7 +158,6 @@ void Server::handle_close(const poker::PlayerId id) {
     return;
   }
   auto conn = std::move(connections_[id]);
-  epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd, nullptr);
   close(conn->fd);
   connections_.erase(id);
   if (conn->table_id != 0 && tables_.contains(conn->table_id)) {
@@ -236,9 +217,6 @@ void Server::push_one(const poker::PlayerId id, const Outbound &out) {
 void Server::push_table(const poker::TableId id, const Outbound &out) {
   auto conns = get_table_conns(id);
   publish(out, conns);
-  for (const auto &conn : conns) {
-    update_interest(conn, epfd_);
-  }
 }
 
 std::vector<Conn *> Server::get_table_conns(const poker::TableId id) const {

@@ -27,8 +27,6 @@ struct Conn {
   bool is_dead{true};
 };
 
-void update_interest(Conn *const c, int epfd);
-
 using Outbound =
     std::variant<poker::Event, std::vector<poker::Event>, poker::Error>;
 
@@ -39,10 +37,9 @@ struct ConnectResult {
 
 class Server {
 public:
-  Server(int epfd, int listenfd);
+  explicit Server(int listenfd);
   ~Server();
 
-  int epfd() const;
   int listenfd() const;
 
   // the caller is responsible for publishing events produced by this
@@ -61,7 +58,6 @@ public:
   void push_table(const poker::TableId id, const Outbound &out);
 
 private:
-  int epfd_;
   int listenfd_;
   std::unordered_map<poker::PlayerId, std::unique_ptr<Conn>> connections_;
   std::unordered_map<poker::TableId, poker::Table> tables_;

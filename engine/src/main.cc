@@ -4,18 +4,25 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <array>
 
 #include "actions.pb.h"
 #include "errors.h"
+#include "reactor_epoll.h"
 #include "server.h"
 #include "spdlog/spdlog.h"
 
 constexpr int PORT = 65432;
 constexpr int MAX_EVENTS = 64;
 constexpr int BUF_SIZE = 1024;
+
+auto conn_interest(const Conn *conn) -> poker::ReactorEvent {
+  return poker::ReactorEvent::read | poker::ReactorEvent::edge_triggered |
+         (!conn->out.empty() ? poker::ReactorEvent::write
+                             : poker::ReactorEvent::none);
+}
 
 int set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
@@ -85,42 +92,42 @@ int main() {
 
   set_nonblocking(listenfd);
 
-  int epfd = epoll_create1(0);
-  if (epfd < 0)
+  Server state(listenfd);
+  poker::EpollReactor reactor;
+  if (!reactor.valid())
     exit(1);
+  reactor.add(state.listenfd(),
+              poker::ReactorEvent::read | poker::ReactorEvent::edge_triggered,
+              nullptr);
 
-  Server state(epfd, listenfd);
-
-  epoll_event ev{};
-  ev.events = EPOLLIN | EPOLLET;
-  ev.data.fd = state.listenfd();
-  epoll_ctl(epfd, EPOLL_CTL_ADD, state.listenfd(), &ev);
-
-  epoll_event events[MAX_EVENTS];
+  std::array<poker::ReadyEvent, MAX_EVENTS> events;
 
   spdlog::info("Started server on port {}", PORT);
 
   while (!g_stop) {
-    int n = epoll_wait(state.epfd(), events, MAX_EVENTS, -1);
+    int n = reactor.wait(events, -1);
     if (n < 0) {
       if (errno == EINTR)
         continue;
       exit(1);
     }
-    spdlog::debug("Processing epoll batch with {} events", n);
+    spdlog::debug("Processing reactor batch with {} events", n);
     for (int i = 0; i < n; ++i) {
-      auto &e = events[i];
+      auto &e = events[static_cast<std::size_t>(i)];
 
       /* Error path */
-      if (e.events & (EPOLLERR | EPOLLHUP)) {
-        if (e.data.fd != state.listenfd()) {
-          close(e.data.fd); // TODO: do we leak resources here?
+      if (poker::has_flag(e.events, poker::ReactorEvent::error) ||
+          poker::has_flag(e.events, poker::ReactorEvent::hangup)) {
+        if (e.user_data != nullptr) {
+          auto *conn = static_cast<Conn *>(e.user_data);
+          reactor.del(conn->fd);
+          state.handle_close(conn->player_id);
         }
         continue;
       }
 
       /* New connections */
-      if (e.data.fd == state.listenfd()) {
+      if (e.user_data == nullptr) {
         while (true) {
           // max players/tables will be limiting factor here
           int cfd = accept(state.listenfd(), nullptr, nullptr);
@@ -132,6 +139,7 @@ int main() {
           }
           set_nonblocking(cfd);
           auto cr = state.handle_connect(cfd);
+          reactor.add(cfd, conn_interest(cr.conn), cr.conn);
           auto tid = cr.conn->table_id;
           if (cr.result) {
             state.push_table(tid, Outbound{*cr.result});
@@ -146,15 +154,16 @@ int main() {
       }
 
       /* Client socket */
-      Conn *c = static_cast<Conn *>(e.data.ptr);
+      Conn *c = static_cast<Conn *>(e.user_data);
 
       /* Read */
-      if (e.events & EPOLLIN) {
+      if (poker::has_flag(e.events, poker::ReactorEvent::read)) {
         char buf[BUF_SIZE];
         while (true) {
           ssize_t r = read(c->fd, buf, sizeof(buf));
           if (r == 0) {
             spdlog::info("Peer closed connection for player {}", c->player_id);
+            reactor.del(c->fd);
             state.handle_close(c->player_id);
             goto next_event;
           }
@@ -162,6 +171,7 @@ int main() {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
               break;
             spdlog::warn("Read error on fd {}: {}", c->fd, strerror(errno));
+            reactor.del(c->fd);
             state.handle_close(c->player_id);
             goto next_event;
           }
@@ -195,13 +205,14 @@ int main() {
       }
 
       /* Write */
-      if (e.events & EPOLLOUT) {
+      if (poker::has_flag(e.events, poker::ReactorEvent::write)) {
         while (!c->out.empty()) {
           ssize_t w = write(c->fd, c->out.data(), c->out.size());
           if (w < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
               break;
             spdlog::warn("Write error on fd {}: {}", c->fd, strerror(errno));
+            reactor.del(c->fd);
             state.handle_close(c->player_id);
             goto next_event;
           }
@@ -212,9 +223,10 @@ int main() {
 
       /* Update interest mask */
       if (c->is_dead) {
+        reactor.del(c->fd);
         state.handle_close(c->player_id);
       } else {
-        update_interest(c, state.epfd());
+        reactor.mod(c->fd, conn_interest(c), c);
       }
 
     next_event:;
