@@ -14,13 +14,12 @@ endif()
 set(CMAKE_CXX_FLAGS_DEBUG
     "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -fno-omit-frame-pointer")
 
+include(${PROJECT_SOURCE_DIR}/cmake/dependencies.cmake)
+
 add_library(project_warnings INTERFACE)
 target_compile_features(project_warnings INTERFACE cxx_std_23)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
-
-find_package(Protobuf REQUIRED)
-add_subdirectory(${PROJECT_SOURCE_DIR}/spdlog)
 
 set(PROTO_FILES
   ${PROJECT_SOURCE_DIR}/proto/poker/v1/actions.proto
@@ -31,7 +30,14 @@ set(PROTO_FILES
 )
 
 set(PROTOBUF_IMPORT_DIRS ${PROJECT_SOURCE_DIR}/proto)
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+protobuf_generate(
+  LANGUAGE cpp
+  PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+  OUT_VAR PROTO_GEN_CPP
+  PROTOS ${PROTO_FILES}
+  IMPORT_DIRS ${PROTOBUF_IMPORT_DIRS}
+  APPEND_PATH
+)
 protobuf_generate(
   LANGUAGE python
   PROTOC_OUT_DIR ${PROJECT_SOURCE_DIR}/client
@@ -42,7 +48,7 @@ protobuf_generate(
 )
 add_custom_target(poker_proto_python DEPENDS ${PROTO_PY})
 
-add_library(poker_proto STATIC ${PROTO_SRCS} ${PROTO_HDRS})
+add_library(poker_proto STATIC ${PROTO_GEN_CPP})
 target_link_libraries(poker_proto PUBLIC protobuf::libprotobuf)
 target_include_directories(poker_proto
   PUBLIC
@@ -79,17 +85,6 @@ add_library(poker_epoll STATIC engine/src/player.cc engine/src/player_manager.cc
                               engine/src/proto_translate.cc)
 target_include_directories(poker_epoll PUBLIC ${PROJECT_SOURCE_DIR}/engine/src)
 target_link_libraries(poker_epoll PUBLIC project_warnings poker_proto)
-
-set(PHEVAL_ROOT ${PROJECT_SOURCE_DIR}/PokerHandEvaluator/cpp)
-set(BUILD_CARD5 OFF CACHE BOOL "" FORCE)
-set(BUILD_CARD6 OFF CACHE BOOL "" FORCE)
-set(BUILD_CARD7 OFF CACHE BOOL "" FORCE)
-set(BUILD_PLO4 OFF CACHE BOOL "" FORCE)
-set(BUILD_PLO5 OFF CACHE BOOL "" FORCE)
-set(BUILD_PLO6 OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-add_subdirectory(${PHEVAL_ROOT} ${CMAKE_BINARY_DIR}/pheval)
 target_link_libraries(poker_epoll PUBLIC pheval)
 
 include(CTest)

@@ -15,7 +15,12 @@
 
 namespace {
 
-constexpr std::size_t kMaxConnections = 102;
+constexpr std::size_t kMaxConnections = 1000;
+
+template <class... Ts> struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 void publish_msg(const std::string &msg, Conn *conn) {
   uint32_t len = htonl(static_cast<uint32_t>(msg.size()));
@@ -29,25 +34,30 @@ void append_event(::poker::v1::Response &res, const poker::Event &ev) {
 }
 
 bool event_visible_to(const poker::Event &ev, const Conn *conn) {
-  if (const auto *dealt = std::get_if<poker::DealtHole>(&ev)) {
-    return dealt->who == conn->player_id;
-  }
-  return true;
+  return std::visit(overloaded{
+                        [conn](const poker::DealtHole &dealt) {
+                          return dealt.who == conn->player_id;
+                        },
+                        [](const auto &) { return true; },
+                    },
+                    ev);
 }
 
 ::poker::v1::Response make_response(const Outbound &out) {
   ::poker::v1::Response res;
-  if (std::holds_alternative<std::vector<poker::Event>>(out)) {
-    for (const auto &ev : std::get<std::vector<poker::Event>>(out)) {
-      append_event(res, ev);
-    }
-  } else if (std::holds_alternative<poker::Event>(out)) {
-    const auto &err = std::get<poker::Event>(out);
-    append_event(res, err);
-  } else {
-    const auto &err = std::get<poker::Error>(out);
-    *res.add_messages()->mutable_error() = poker::to_proto_error(err);
-  }
+  std::visit(
+      overloaded{
+          [&res](const poker::Event &event) { append_event(res, event); },
+          [&res](const std::vector<poker::Event> &events) {
+            for (const auto &event : events) {
+              append_event(res, event);
+            }
+          },
+          [&res](const poker::Error &error) {
+            *res.add_messages()->mutable_error() = poker::to_proto_error(error);
+          },
+      },
+      out);
   return res;
 }
 
@@ -59,39 +69,41 @@ void publish(const Outbound &out, Conn *const conn) {
 }
 
 void publish(const Outbound &out, std::span<Conn *const> conns) {
-  if (std::holds_alternative<poker::Error>(out)) {
-    spdlog::warn("Attempted to broadcast error to table; dropping");
-    return;
-  }
-  if (std::holds_alternative<poker::Event>(out)) {
-    const auto &ev = std::get<poker::Event>(out);
-    for (const auto &conn : conns) {
-      if (!event_visible_to(ev, conn)) {
-        continue;
-      }
-      ::poker::v1::Response res;
-      append_event(res, ev);
-      std::string msg;
-      res.SerializeToString(&msg);
-      publish_msg(msg, conn);
-    }
-    return;
-  }
-  const auto &events = std::get<std::vector<poker::Event>>(out);
-  for (const auto &conn : conns) {
-    ::poker::v1::Response res;
-    for (const auto &ev : events) {
-      if (event_visible_to(ev, conn)) {
-        append_event(res, ev);
-      }
-    }
-    if (res.messages_size() == 0) {
-      continue;
-    }
-    std::string msg;
-    res.SerializeToString(&msg);
-    publish_msg(msg, conn);
-  }
+  std::visit(overloaded{
+                 [](const poker::Error &) {
+                   spdlog::warn(
+                       "Attempted to broadcast error to table; dropping");
+                 },
+                 [&conns](const poker::Event &event) {
+                   for (const auto &conn : conns) {
+                     if (!event_visible_to(event, conn)) {
+                       continue;
+                     }
+                     ::poker::v1::Response res;
+                     append_event(res, event);
+                     std::string msg;
+                     res.SerializeToString(&msg);
+                     publish_msg(msg, conn);
+                   }
+                 },
+                 [&conns](const std::vector<poker::Event> &events) {
+                   for (const auto &conn : conns) {
+                     ::poker::v1::Response res;
+                     for (const auto &event : events) {
+                       if (event_visible_to(event, conn)) {
+                         append_event(res, event);
+                       }
+                     }
+                     if (res.messages_size() == 0) {
+                       continue;
+                     }
+                     std::string msg;
+                     res.SerializeToString(&msg);
+                     publish_msg(msg, conn);
+                   }
+                 },
+             },
+             out);
 }
 
 } // namespace
