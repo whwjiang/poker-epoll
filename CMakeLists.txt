@@ -109,3 +109,7 @@ gtest_discover_tests(player_manager_tests)
 add_executable(table_tests engine/tests/table_tests.cc)
 target_link_libraries(table_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)
 gtest_discover_tests(table_tests)
+
+add_executable(server_tests engine/tests/server_tests.cc)
+target_link_libraries(server_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)
+gtest_discover_tests(server_tests)

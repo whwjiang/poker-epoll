@@ -173,10 +173,14 @@ void Server::handle_close(const poker::PlayerId id) {
   close(conn->fd);
   connections_.erase(id);
   if (conn->table_id != 0 && tables_.contains(conn->table_id)) {
-    auto result = tables_.at(conn->table_id).remove_player(id);
+    auto table_it = tables_.find(conn->table_id);
+    auto result = table_it->second.remove_player(id);
     if (!result) {
       spdlog::warn("Failed to remove player {} from table {}: {}", id,
                    conn->table_id, poker::to_string(result.error()));
+    } else if (table_it->second.is_empty()) {
+      tables_.erase(table_it);
+      spdlog::info("Removed empty table {}", conn->table_id);
     }
   }
   spdlog::info("Closed connection on fd {}", conn->fd);
