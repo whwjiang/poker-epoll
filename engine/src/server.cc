@@ -192,35 +192,6 @@ void Server::handle_close(const poker::PlayerId id) {
   spdlog::info("Closed connection on fd {}", conn->fd);
 }
 
-auto Server::start_hand(const poker::TableId id)
-    -> std::expected<std::vector<poker::Event>, poker::Error> {
-  if (!tables_.contains(id)) {
-    return std::unexpected(poker::ServerError::illegal_action);
-  }
-  return tables_.at(id).handle_new_hand();
-}
-
-auto Server::maybe_start_hand(const poker::TableId id)
-    -> std::optional<std::vector<poker::Event>> {
-  auto it = tables_.find(id);
-  if (it == tables_.end()) {
-    return std::nullopt;
-  }
-  auto &table = it->second;
-  if (!table.can_start_hand()) {
-    spdlog::warn("Couldn't start hand for table yet");
-    return std::nullopt;
-  }
-  auto res = table.handle_new_hand();
-  if (!res) {
-    spdlog::warn("Failed to auto-start hand at table {}: {}", id,
-                 poker::to_string(res.error()));
-    return std::nullopt;
-  }
-  spdlog::info("Started hand for table {}", id);
-  return std::move(*res);
-}
-
 auto Server::apply_action(const ::poker::v1::Action a, poker::PlayerId id)
     -> std::expected<std::vector<poker::Event>, poker::Error> {
   auto action = poker::from_proto_action(a, id);

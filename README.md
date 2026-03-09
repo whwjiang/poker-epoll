@@ -45,9 +45,9 @@ Run a single test binary directly:
 
 ## Next Steps
 
-- Add move timeouts
+- Add action timeouts on the server side (support exists via table)
 - Fuzz test inputs
 - Factor out `epoll` code into some sort of small library
 - Support `io_uring` as a drop-in replacement for `epoll`
 - Performance test `epoll` against `io_uring`
-- Persist player purses across server restart and client sessions
+- Persist player purses across server restart and client sessions, and have the server remember client identities somehow (e.g. cookie persisted on client)

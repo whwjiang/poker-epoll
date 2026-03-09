@@ -45,8 +45,9 @@ bool try_parse_frame(Conn *c, std::string &out_msg) {
   }
 
   // Step 2: body
-  if (c->in.size() < c->in_off + c->in_size)
+  if (c->in.size() < c->in_off + c->in_size) {
     return false;
+  }
 
   out_msg.assign(c->in.data() + c->in_off, c->in_size);
   c->in.erase(0, c->in_off + c->in_size);
@@ -72,17 +73,6 @@ std::string action_to_string(const ::poker::v1::Action &action) {
 
 void handle_sigint(int) { g_stop = 1; }
 
-void sync_table_interest(Server &state, int epfd, poker::TableId table_id);
-
-void close_connection(Server &state, int epfd, Conn *conn) {
-  const poker::TableId tid = conn->table_id;
-  epoll_ctl(epfd, EPOLL_CTL_DEL, conn->fd, nullptr);
-  state.handle_close(conn->player_id);
-  if (tid != 0) {
-    sync_table_interest(state, epfd, tid);
-  }
-}
-
 void sync_table_interest(Server &state, int epfd, poker::TableId table_id) {
   for (Conn *conn : state.get_table_conns(table_id)) {
     if (conn->is_dead) {
@@ -92,6 +82,15 @@ void sync_table_interest(Server &state, int epfd, poker::TableId table_id) {
     event.events = conn_interest(conn);
     event.data.ptr = conn;
     epoll_ctl(epfd, EPOLL_CTL_MOD, conn->fd, &event);
+  }
+}
+
+void close_connection(Server &state, int epfd, Conn *conn) {
+  const poker::TableId tid = conn->table_id;
+  epoll_ctl(epfd, EPOLL_CTL_DEL, conn->fd, nullptr);
+  state.handle_close(conn->player_id);
+  if (tid != 0) {
+    sync_table_interest(state, epfd, tid);
   }
 }
 
@@ -272,17 +271,20 @@ int main() {
     for (int i = 0; i < n; ++i) {
       auto &e = events[static_cast<std::size_t>(i)];
 
+      // connection close
       if ((e.events & (EPOLLERR | EPOLLHUP)) != 0U && e.data.ptr != nullptr) {
         auto *conn = static_cast<Conn *>(e.data.ptr);
         close_connection(state, epfd, conn);
         continue;
       }
 
+      // new connection: no data ptr
       if (e.data.ptr == nullptr) {
         handle_accepts(state, epfd);
         continue;
       }
 
+      // else, a client event
       handle_client_event(state, epfd, e);
     }
   }
