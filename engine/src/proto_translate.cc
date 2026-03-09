@@ -81,6 +81,18 @@ auto to_proto_phase(Phase phase) -> ::poker::v1::Event::Phase {
   }
 }
 
+auto to_proto_blind_role(BlindRole role) -> ::poker::v1::Event::BlindRole {
+  using Proto = ::poker::v1::Event::BlindRole;
+  switch (role) {
+  case BlindRole::small:
+    return Proto::Event_BlindRole_BLIND_ROLE_SMALL;
+  case BlindRole::big:
+    return Proto::Event_BlindRole_BLIND_ROLE_BIG;
+  default:
+    return Proto::Event_BlindRole_BLIND_ROLE_UNSPECIFIED;
+  }
+}
+
 auto to_proto_rank(cards::Rank rank) -> ::poker::v1::Rank {
   using Proto = ::poker::v1::Rank;
   switch (rank) {
@@ -148,6 +160,8 @@ auto from_proto_action(const ::poker::v1::Action &action, PlayerId id)
     return Action{Fold{id}};
   case Payload::kBet:
     return Action{Bet{id, action.bet().amount()}};
+  case Payload::kReady:
+    return Action{Ready{id}};
   case Payload::PAYLOAD_NOT_SET:
   default:
     return std::unexpected(GameError::invalid_action);
@@ -217,6 +231,10 @@ auto to_proto_event(const Event &ev) -> ::poker::v1::Event {
           for (const auto &c : e.hole) {
             *msg->add_hole() = to_proto_card(c);
           }
+        } else if constexpr (std::is_same_v<T, BlindAssigned>) {
+          auto *msg = out.mutable_blind_assigned();
+          msg->set_who(e.who);
+          msg->set_role(to_proto_blind_role(e.role));
         }
       },
       ev);

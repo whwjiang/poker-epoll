@@ -147,8 +147,7 @@ auto Server::handle_connect(const int cfd) -> ConnectResult {
   auto it = tables_.find(tid);
   if (it == tables_.end()) {
     tid = next_table_id_++;
-    std::mt19937_64 rng(0); // TODO: make this different for each table
-    it = tables_.emplace(tid, poker::Table(rng)).first;
+    it = tables_.emplace(tid, poker::Table(std::mt19937_64{0})).first;
     spdlog::info("Created new table {}", tid);
   }
   // seat the player at the found table or return an error
@@ -172,16 +171,23 @@ void Server::handle_close(const poker::PlayerId id) {
   auto conn = std::move(connections_[id]);
   close(conn->fd);
   connections_.erase(id);
+  std::optional<Outbound> table_update = std::nullopt;
   if (conn->table_id != 0 && tables_.contains(conn->table_id)) {
     auto table_it = tables_.find(conn->table_id);
     auto result = table_it->second.remove_player(id);
     if (!result) {
       spdlog::warn("Failed to remove player {} from table {}: {}", id,
                    conn->table_id, poker::to_string(result.error()));
-    } else if (table_it->second.is_empty()) {
-      tables_.erase(table_it);
-      spdlog::info("Removed empty table {}", conn->table_id);
+    } else {
+      table_update = Outbound{*result};
+      if (table_it->second.is_empty()) {
+        tables_.erase(table_it);
+        spdlog::info("Removed empty table {}", conn->table_id);
+      }
     }
+  }
+  if (table_update.has_value()) {
+    push_table(conn->table_id, *table_update);
   }
   spdlog::info("Closed connection on fd {}", conn->fd);
 }
@@ -202,6 +208,7 @@ auto Server::maybe_start_hand(const poker::TableId id)
   }
   auto &table = it->second;
   if (!table.can_start_hand()) {
+    spdlog::warn("Couldn't start hand for table yet");
     return std::nullopt;
   }
   auto res = table.handle_new_hand();
@@ -210,6 +217,7 @@ auto Server::maybe_start_hand(const poker::TableId id)
                  poker::to_string(res.error()));
     return std::nullopt;
   }
+  spdlog::info("Started hand for table {}", id);
   return std::move(*res);
 }
 

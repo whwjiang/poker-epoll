@@ -56,6 +56,7 @@ public:
       -> std::expected<std::vector<poker::Event>, poker::Error>;
   void push_one(const poker::PlayerId id, const Outbound &out);
   void push_table(const poker::TableId id, const Outbound &out);
+  std::vector<Conn *> get_table_conns(poker::TableId id) const;
 
 private:
   int listenfd_;
@@ -64,5 +65,4 @@ private:
   poker::PlayerId next_player_id_{1};
   poker::TableId next_table_id_{1};
 
-  std::vector<Conn *> get_table_conns(poker::TableId id) const;
 };

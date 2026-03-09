@@ -4,6 +4,12 @@ package poker.v1;
 import "cards.proto";
 
 message Event {
+  enum BlindRole {
+    BLIND_ROLE_UNSPECIFIED = 0;
+    BLIND_ROLE_SMALL = 1;
+    BLIND_ROLE_BIG = 2;
+  }
+
   enum Phase {
     PHASE_UNSPECIFIED = 0;
     PHASE_HOLDING = 1;
@@ -64,6 +70,11 @@ message Event {
     uint64 who = 1;
     repeated Card hole = 2;
   }
+
+  message BlindAssigned {
+    uint64 who = 1;
+    BlindRole role = 2;
+  }
   oneof payload {
     PlayerAdded player_added = 1;
     PlayerRemoved player_removed = 2;
@@ -77,5 +88,6 @@ message Event {
     DealtFlop dealt_flop = 10;
     DealtStreet dealt_street = 11;
     ShowdownHand showdown_hand = 12;
+    BlindAssigned blind_assigned = 13;
   }
 }

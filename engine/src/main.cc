@@ -4,13 +4,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <array>
+#include <vector>
 
 #include "actions.pb.h"
 #include "errors.h"
-#include "reactor_epoll.h"
 #include "server.h"
 #include "spdlog/spdlog.h"
 
@@ -18,10 +19,9 @@ constexpr int PORT = 65432;
 constexpr int MAX_EVENTS = 64;
 constexpr int BUF_SIZE = 1024;
 
-auto conn_interest(const Conn *conn) -> poker::ReactorEvent {
-  return poker::ReactorEvent::read | poker::ReactorEvent::edge_triggered |
-         (!conn->out.empty() ? poker::ReactorEvent::write
-                             : poker::ReactorEvent::none);
+auto conn_interest(const Conn *conn) -> uint32_t {
+  return static_cast<uint32_t>(EPOLLIN | EPOLLET) |
+         (!conn->out.empty() ? static_cast<uint32_t>(EPOLLOUT) : 0U);
 }
 
 int set_nonblocking(int fd) {
@@ -34,8 +34,10 @@ volatile sig_atomic_t g_stop = 0;
 bool try_parse_frame(Conn *c, std::string &out_msg) {
   // Step 1: header
   if (c->in_size == 0) {
-    if (c->in.size() < sizeof(uint32_t))
+    if (c->in.size() < sizeof(uint32_t)) {
+      // don't read the bytes until there is a header
       return false;
+    }
     uint32_t net_len = 0;
     std::memcpy(&net_len, c->in.data(), sizeof(net_len));
     c->in_size = ntohl(net_len);
@@ -60,6 +62,8 @@ std::string action_to_string(const ::poker::v1::Action &action) {
     return "fold";
   case Payload::kBet:
     return "bet " + std::to_string(action.bet().amount());
+  case Payload::kReady:
+    return "ready";
   case Payload::PAYLOAD_NOT_SET:
   default:
     return "unknown";
@@ -67,6 +71,157 @@ std::string action_to_string(const ::poker::v1::Action &action) {
 }
 
 void handle_sigint(int) { g_stop = 1; }
+
+void sync_table_interest(Server &state, int epfd, poker::TableId table_id);
+
+void close_connection(Server &state, int epfd, Conn *conn) {
+  const poker::TableId tid = conn->table_id;
+  epoll_ctl(epfd, EPOLL_CTL_DEL, conn->fd, nullptr);
+  state.handle_close(conn->player_id);
+  if (tid != 0) {
+    sync_table_interest(state, epfd, tid);
+  }
+}
+
+void sync_table_interest(Server &state, int epfd, poker::TableId table_id) {
+  for (Conn *conn : state.get_table_conns(table_id)) {
+    if (conn->is_dead) {
+      continue;
+    }
+    epoll_event event{};
+    event.events = conn_interest(conn);
+    event.data.ptr = conn;
+    epoll_ctl(epfd, EPOLL_CTL_MOD, conn->fd, &event);
+  }
+}
+
+auto handle_read(Server &state, int epfd, Conn *conn) -> bool {
+  char buf[BUF_SIZE];
+  while (true) {
+    ssize_t r = read(conn->fd, buf, sizeof(buf));
+    if (r == 0) {
+      spdlog::info("Peer closed connection for player {}", conn->player_id);
+      close_connection(state, epfd, conn);
+      return false;
+    }
+    if (r < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        break;
+      }
+      spdlog::warn("Read error on fd {}: {}", conn->fd, strerror(errno));
+      close_connection(state, epfd, conn);
+      return false;
+    }
+
+    conn->in.append(buf, r);
+    std::string msg;
+    while (try_parse_frame(conn, msg)) {
+      ::poker::v1::Action action;
+      if (!action.ParseFromString(msg)) {
+        spdlog::warn("Invalid action payload from player {}", conn->player_id);
+        state.push_one(conn->player_id, poker::GameError::invalid_action);
+      } else {
+        spdlog::info("Received action from player {}: {}", conn->player_id,
+                     action_to_string(action));
+        auto ar = state.apply_action(action, conn->player_id);
+        if (!ar) {
+          spdlog::info("Action rejected for player {}: {}", conn->player_id,
+                       poker::to_string(ar.error()));
+        }
+        if (ar) {
+          state.push_table(conn->table_id, Outbound{*ar});
+          sync_table_interest(state, epfd, conn->table_id);
+        } else {
+          state.push_one(conn->player_id, Outbound{ar.error()});
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+auto handle_write(Server &state, int epfd, Conn *conn) -> bool {
+  while (!conn->out.empty()) {
+    ssize_t w = write(conn->fd, conn->out.data(), conn->out.size());
+    if (w < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        break;
+      }
+      spdlog::warn("Write error on fd {}: {}", conn->fd, strerror(errno));
+      close_connection(state, epfd, conn);
+      return false;
+    }
+    conn->out.erase(0, w);
+    spdlog::debug("Wrote {} bytes to fd {}", w, conn->fd);
+  }
+
+  return true;
+}
+
+void handle_accepts(Server &state, int epfd) {
+  while (true) {
+    // max players/tables will be limiting factor here
+    int cfd = accept(state.listenfd(), nullptr, nullptr);
+    if (cfd < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return;
+      }
+      // potentially handle other errno's
+      return;
+    }
+
+    set_nonblocking(cfd);
+    auto cr = state.handle_connect(cfd);
+    epoll_event conn_event{};
+    conn_event.events = conn_interest(cr.conn);
+    conn_event.data.ptr = cr.conn;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, cfd, &conn_event);
+    auto tid = cr.conn->table_id;
+    if (cr.result) {
+      state.push_table(tid, Outbound{*cr.result});
+      sync_table_interest(state, epfd, tid);
+
+      std::vector<poker::Event> snapshot;
+      for (Conn *existing : state.get_table_conns(tid)) {
+        if (existing->player_id == cr.conn->player_id) {
+          continue;
+        }
+        snapshot.push_back(poker::PlayerAdded{existing->player_id});
+      }
+      if (!snapshot.empty()) {
+        state.push_one(cr.conn->player_id, Outbound{snapshot});
+        sync_table_interest(state, epfd, tid);
+      }
+    } else {
+      state.push_one(cr.conn->player_id, Outbound{cr.result.error()});
+    }
+  }
+}
+
+void handle_client_event(Server &state, int epfd, epoll_event &event) {
+  Conn *conn = static_cast<Conn *>(event.data.ptr);
+  bool alive = true;
+
+  if ((event.events & EPOLLIN) != 0U) {
+    alive = handle_read(state, epfd, conn);
+  }
+  if (alive && (event.events & EPOLLOUT) != 0U) {
+    alive = handle_write(state, epfd, conn);
+  }
+  if (alive && conn->is_dead) {
+    close_connection(state, epfd, conn);
+    return;
+  }
+  if (!alive) {
+    return;
+  }
+
+  epoll_event conn_event{};
+  conn_event.events = conn_interest(conn);
+  conn_event.data.ptr = conn;
+  epoll_ctl(epfd, EPOLL_CTL_MOD, conn->fd, &conn_event);
+}
 
 int main() {
   std::signal(SIGINT, handle_sigint);
@@ -93,143 +248,43 @@ int main() {
   set_nonblocking(listenfd);
 
   Server state(listenfd);
-  poker::EpollReactor reactor;
-  if (!reactor.valid())
+  int epfd = epoll_create1(0);
+  if (epfd < 0)
     exit(1);
-  reactor.add(state.listenfd(),
-              poker::ReactorEvent::read | poker::ReactorEvent::edge_triggered,
-              nullptr);
+  epoll_event listener_event{};
+  listener_event.events = EPOLLIN | EPOLLET;
+  listener_event.data.ptr = nullptr;
+  if (epoll_ctl(epfd, EPOLL_CTL_ADD, state.listenfd(), &listener_event) < 0)
+    exit(1);
 
-  std::array<poker::ReadyEvent, MAX_EVENTS> events;
+  std::array<epoll_event, MAX_EVENTS> events;
 
   spdlog::info("Started server on port {}", PORT);
 
   while (!g_stop) {
-    int n = reactor.wait(events, -1);
+    int n = epoll_wait(epfd, events.data(), static_cast<int>(events.size()), -1);
     if (n < 0) {
       if (errno == EINTR)
         continue;
       exit(1);
     }
-    spdlog::debug("Processing reactor batch with {} events", n);
+    spdlog::debug("Processing epoll batch with {} events", n);
     for (int i = 0; i < n; ++i) {
       auto &e = events[static_cast<std::size_t>(i)];
 
-      /* Error path */
-      if (poker::has_flag(e.events, poker::ReactorEvent::error) ||
-          poker::has_flag(e.events, poker::ReactorEvent::hangup)) {
-        if (e.user_data != nullptr) {
-          auto *conn = static_cast<Conn *>(e.user_data);
-          reactor.del(conn->fd);
-          state.handle_close(conn->player_id);
-        }
+      if ((e.events & (EPOLLERR | EPOLLHUP)) != 0U && e.data.ptr != nullptr) {
+        auto *conn = static_cast<Conn *>(e.data.ptr);
+        close_connection(state, epfd, conn);
         continue;
       }
 
-      /* New connections */
-      if (e.user_data == nullptr) {
-        while (true) {
-          // max players/tables will be limiting factor here
-          int cfd = accept(state.listenfd(), nullptr, nullptr);
-          if (cfd < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-              break;
-            // potentially handle other errno's
-            break;
-          }
-          set_nonblocking(cfd);
-          auto cr = state.handle_connect(cfd);
-          reactor.add(cfd, conn_interest(cr.conn), cr.conn);
-          auto tid = cr.conn->table_id;
-          if (cr.result) {
-            state.push_table(tid, Outbound{*cr.result});
-            if (auto start_result = state.maybe_start_hand(tid)) {
-              state.push_table(cr.conn->table_id, Outbound{*start_result});
-            }
-          } else {
-            state.push_one(cr.conn->player_id, Outbound{cr.result.error()});
-          }
-        }
+      if (e.data.ptr == nullptr) {
+        handle_accepts(state, epfd);
         continue;
       }
 
-      /* Client socket */
-      Conn *c = static_cast<Conn *>(e.user_data);
-
-      /* Read */
-      if (poker::has_flag(e.events, poker::ReactorEvent::read)) {
-        char buf[BUF_SIZE];
-        while (true) {
-          ssize_t r = read(c->fd, buf, sizeof(buf));
-          if (r == 0) {
-            spdlog::info("Peer closed connection for player {}", c->player_id);
-            reactor.del(c->fd);
-            state.handle_close(c->player_id);
-            goto next_event;
-          }
-          if (r < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-              break;
-            spdlog::warn("Read error on fd {}: {}", c->fd, strerror(errno));
-            reactor.del(c->fd);
-            state.handle_close(c->player_id);
-            goto next_event;
-          }
-          c->in.append(buf, r);
-          std::string msg;
-          while (try_parse_frame(c, msg)) {
-            ::poker::v1::Action action;
-            if (!action.ParseFromString(msg)) {
-              spdlog::warn("Invalid action payload from player {}",
-                           c->player_id);
-              state.push_one(c->player_id, poker::GameError::invalid_action);
-            } else {
-              spdlog::info("Received action from player {}: {}", c->player_id,
-                            action_to_string(action));
-              auto ar = state.apply_action(action, c->player_id);
-              if (!ar) {
-                spdlog::info("Action rejected for player {}: {}", c->player_id,
-                             poker::to_string(ar.error()));
-              }
-              if (ar) {
-                state.push_table(c->table_id, Outbound{*ar});
-                if (auto next = state.maybe_start_hand(c->table_id)) {
-                  state.push_table(c->table_id, Outbound{*next});
-                }
-              } else {
-                state.push_one(c->player_id, Outbound{ar.error()});
-              }
-            }
-          }
-        }
-      }
-
-      /* Write */
-      if (poker::has_flag(e.events, poker::ReactorEvent::write)) {
-        while (!c->out.empty()) {
-          ssize_t w = write(c->fd, c->out.data(), c->out.size());
-          if (w < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-              break;
-            spdlog::warn("Write error on fd {}: {}", c->fd, strerror(errno));
-            reactor.del(c->fd);
-            state.handle_close(c->player_id);
-            goto next_event;
-          }
-          c->out.erase(0, w);
-          spdlog::debug("Wrote {} bytes to fd {}", w, c->fd);
-        }
-      }
-
-      /* Update interest mask */
-      if (c->is_dead) {
-        reactor.del(c->fd);
-        state.handle_close(c->player_id);
-      } else {
-        reactor.mod(c->fd, conn_interest(c), c);
-      }
-
-    next_event:;
+      handle_client_event(state, epfd, e);
     }
   }
+  close(epfd);
 }

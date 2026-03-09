@@ -53,7 +53,7 @@ TEST(Deck, OutOfCards) {
   deck.shuffle(rng);
 
   for (int i = 0; i < 26; ++i) {
-    deck.deal_hole();
+    auto _ = deck.deal_hole();
   }
 
   auto res = deck.deal_hole();

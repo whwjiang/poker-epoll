@@ -32,6 +32,7 @@ public:
 
   std::size_t num_players() const;
 
+  bool has_player(PlayerId id) const;
   bool is_sat(PlayerId id) const;
 
   // caller is responsible for validating id

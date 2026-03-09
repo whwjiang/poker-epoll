@@ -8,8 +8,11 @@ message Action {
     uint64 amount = 2;
   }
 
+  message Ready {}
+
   oneof payload {
     Fold fold = 1;
     Bet bet = 2;
+    Ready ready = 3;
   }
 }

@@ -14,7 +14,7 @@ TEST(Server, RemovesEmptyTableAfterLastDisconnect) {
   int listenfd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_GE(listenfd, 0);
 
-  Server server(epfd, listenfd);
+  Server server(listenfd);
 
   int pair1[2];
   ASSERT_EQ(socketpair(AF_UNIX, SOCK_STREAM, 0, pair1), 0);

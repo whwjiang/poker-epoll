@@ -7,6 +7,7 @@
 #include <queue>
 #include <random>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -64,10 +65,15 @@ struct ShowdownHand {
   PlayerId who;
   std::array<cards::Card, kHoleSize> hole;
 };
+enum class BlindRole : uint8_t { small, big };
+struct BlindAssigned {
+  PlayerId who;
+  BlindRole role;
+};
 using Event =
     std::variant<PlayerAdded, PlayerRemoved, BetPlaced, TurnAdvanced,
                  PhaseAdvanced, WonPot, PlayerChips, HandStarted, DealtHole,
-                 DealtFlop, DealtStreet, ShowdownHand>;
+                 DealtFlop, DealtStreet, ShowdownHand, BlindAssigned>;
 
 struct Fold {
   PlayerId id;
@@ -79,8 +85,11 @@ struct Bet {
 struct Timeout {
   PlayerId id;
 };
+struct Ready {
+  PlayerId id;
+};
 
-using Action = std::variant<Fold, Bet, Timeout>;
+using Action = std::variant<Fold, Bet, Timeout, Ready>;
 
 enum class PlayerState { active, all_in, folded, broke, left };
 
@@ -101,7 +110,7 @@ struct HandState {
 
 class Table {
 public:
-  explicit Table(std::mt19937_64 &rng);
+  explicit Table(std::mt19937_64 rng);
   bool has_open_seat() const;
   bool is_empty() const;
   bool can_start_hand() const;
@@ -130,10 +139,12 @@ private:
   auto handle(const Bet &b) -> std::expected<std::vector<Event>, GameError>;
   auto handle(const Fold &f) -> std::expected<std::vector<Event>, GameError>;
   auto handle(const Timeout &t) -> std::expected<std::vector<Event>, GameError>;
+  auto handle(const Ready &r) -> std::expected<std::vector<Event>, GameError>;
 
   cards::Deck deck_{};
-  std::mt19937_64 &rng_;
+  std::mt19937_64 rng_;
   PlayerManager players_{};
+  std::unordered_set<PlayerId> ready_players_{};
   PlayerId button_{0};
   std::optional<HandState> hand_state_{std::nullopt};
 };

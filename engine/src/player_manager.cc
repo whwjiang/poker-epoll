@@ -100,6 +100,7 @@ std::size_t PlayerManager::num_players() const {
   return kMaxPlayers - open_seats_.size();
 }
 
+bool PlayerManager::has_player(PlayerId id) const { return index_.contains(id); }
 
 bool PlayerManager::is_sat(PlayerId id) const {
   return index_.contains(id) && seats_[index_.at(id)].has_value();

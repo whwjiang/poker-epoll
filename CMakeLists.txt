@@ -90,8 +90,7 @@ target_link_libraries(poker_epoll PUBLIC pheval)
 include(CTest)
 enable_testing()
 
-add_executable(poker_server engine/src/main.cc engine/src/server.cc
-                            engine/src/reactor_epoll.cc)
+add_executable(poker_server engine/src/main.cc engine/src/server.cc)
 target_link_libraries(poker_server PRIVATE project_warnings poker_proto poker_epoll spdlog::spdlog)
 
 find_package(Threads REQUIRED)
@@ -110,6 +109,6 @@ add_executable(table_tests engine/tests/table_tests.cc)
 target_link_libraries(table_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)
 gtest_discover_tests(table_tests)
 
-add_executable(server_tests engine/tests/server_tests.cc)
-target_link_libraries(server_tests PRIVATE poker_epoll GTest::gtest_main Threads::Threads)
+add_executable(server_tests engine/tests/server_tests.cc engine/src/server.cc)
+target_link_libraries(server_tests PRIVATE poker_epoll spdlog::spdlog GTest::gtest_main Threads::Threads)
 gtest_discover_tests(server_tests)

@@ -73,6 +73,8 @@ def action_to_str(action: actions_pb2.Action) -> str:
         return "fold"
     if payload == "bet":
         return f"bet {action.bet.amount}"
+    if payload == "ready":
+        return "ready"
     return "unknown"
 
 
@@ -89,6 +91,8 @@ class ClientState:
         self.pot = 0
         self.logs = []
         self.hand_active = False
+        self.blind_roles = {}
+        self.ready_sent = False
 
     def log(self, msg: str):
         timestamp = time.strftime("%H:%M:%S")
@@ -100,10 +104,23 @@ class ClientState:
         self.board = []
         self.hole = []
         self.showdown = {}
+        self.blind_roles = {}
         self.active_bets = {}
         self.turn = None
         self.pot = 0
         self.hand_active = True
+        self.ready_sent = False
+
+    def enter_holding(self):
+        self.phase = events_pb2.Event.PHASE_HOLDING
+        self.board = []
+        self.showdown = {}
+        self.blind_roles = {}
+        self.active_bets = {}
+        self.turn = None
+        self.pot = 0
+        self.hand_active = False
+        self.ready_sent = False
 
     def call_amount(self) -> int:
         if self.player_id is None:
@@ -122,12 +139,16 @@ class ClientState:
         if payload == "player_added":
             who = ev.player_added.who
             self.players.setdefault(who, 0)
+            if self.player_id is None:
+                self.player_id = who
+                self.log(f"you are player {who}")
             self.log(f"player {who} joined")
         elif payload == "player_removed":
             who = ev.player_removed.who
             self.players.pop(who, None)
             self.active_bets.pop(who, None)
             self.showdown.pop(who, None)
+            self.blind_roles.pop(who, None)
             self.log(f"player {who} left")
         elif payload == "player_chips":
             who = ev.player_chips.who
@@ -137,7 +158,10 @@ class ClientState:
             self.log("hand started")
         elif payload == "phase_advanced":
             self.phase = ev.phase_advanced.next
-            self.active_bets = {}
+            if self.phase == events_pb2.Event.PHASE_HOLDING:
+                self.enter_holding()
+            else:
+                self.active_bets = {}
             self.log(f"phase: {PHASE_LABELS.get(self.phase, '?')}")
         elif payload == "dealt_hole":
             who = ev.dealt_hole.who
@@ -157,6 +181,13 @@ class ClientState:
             self.log(f"player {who} bet {ev.bet_placed.amount}")
         elif payload == "turn_advanced":
             self.turn = ev.turn_advanced.next
+        elif payload == "blind_assigned":
+            who = ev.blind_assigned.who
+            role = ev.blind_assigned.role
+            if role == events_pb2.Event.BLIND_ROLE_SMALL:
+                self.blind_roles[who] = "SB"
+            elif role == events_pb2.Event.BLIND_ROLE_BIG:
+                self.blind_roles[who] = "BB"
         elif payload == "won_pot":
             self.pot = max(0, self.pot - ev.won_pot.amount)
             self.log(f"player {ev.won_pot.who} won {ev.won_pot.amount}")
@@ -210,7 +241,9 @@ def render_screen(win, state: ClientState, selection: int, bet_amount: int):
     row = 6
     for pid in sorted(state.players.keys()):
         tag = "->" if pid == state.turn else "  "
-        line = f"{tag} P{pid}  chips={state.players.get(pid, 0)}"
+        blind = state.blind_roles.get(pid, "")
+        blind_tag = f" [{blind}]" if blind else ""
+        line = f"{tag} P{pid}{blind_tag}  chips={state.players.get(pid, 0)}"
         if row < h - 10:
             safe_addstr(row, 4, line)
         row += 1
@@ -227,22 +260,36 @@ def render_screen(win, state: ClientState, selection: int, bet_amount: int):
     action_row = h - 6
     safe_addstr(action_row, 2, "Actions:")
 
-    call_amount = state.call_amount()
-    call_label = f"Call {call_amount}" if call_amount > 0 else "Check"
-    bet_min = max(call_amount, 1) if chips > 0 else 0
-    bet_max = chips
-    if bet_min > bet_max:
-        bet_display = "Bet (unavailable)"
+    waiting_for_turn = state.turn is None
+    if waiting_for_turn:
+        if state.player_id is None:
+            actions = ["Waiting for identity"]
+        elif state.ready_sent:
+            actions = ["Ready sent"]
+        else:
+            actions = ["Ready"]
     else:
-        bet_display = f"Bet {bet_amount} [{bet_min}-{bet_max}]"
-    actions = [call_label, bet_display, "Fold"]
+        call_amount = state.call_amount()
+        call_label = f"Call {call_amount}" if call_amount > 0 else "Check"
+        bet_min = max(call_amount, 1) if chips > 0 else 0
+        bet_max = chips
+        if bet_min > bet_max:
+            bet_display = "Bet (unavailable)"
+        else:
+            bet_display = f"Bet {bet_amount} [{bet_min}-{bet_max}]"
+        actions = [call_label, bet_display, "Fold"]
 
     for idx, label in enumerate(actions):
         marker = ">" if idx == selection else " "
         safe_addstr(action_row + 1 + idx, 4, f"{marker} {label}")
 
     if state.turn is None:
-        status = "Waiting for server"
+        if state.player_id is None:
+            status = "Waiting for server"
+        elif state.ready_sent:
+            status = "Waiting for others to ready"
+        else:
+            status = f"Press Enter to ready: P{state.player_id}"
     elif state.turn == state.player_id:
         status = f"Your turn: P{state.player_id}"
     else:
@@ -324,13 +371,16 @@ def main(stdscr):
                         update_interest(s)
 
             key = stdscr.getch()
+            action_count = 1 if state.turn is None else 3
+            if selection >= action_count:
+                selection = action_count - 1
             if key != -1:
                 if key in (ord("q"), ord("Q")):
                     break
                 if key == curses.KEY_UP:
-                    selection = (selection - 1) % 3
+                    selection = (selection - 1) % action_count
                 elif key == curses.KEY_DOWN:
-                    selection = (selection + 1) % 3
+                    selection = (selection + 1) % action_count
                 elif key in (curses.KEY_LEFT, curses.KEY_RIGHT):
                     chips = state.player_chips()
                     call_amount = state.call_amount()
@@ -343,8 +393,16 @@ def main(stdscr):
                         else:
                             bet_amount = min(bet_max, bet_amount + step)
                 elif key in (curses.KEY_ENTER, 10, 13):
-                    if state.player_id is None or state.turn is None:
-                        state.log("waiting for hand")
+                    if state.turn is None:
+                        if state.player_id is None:
+                            state.log("waiting for identity")
+                        elif state.ready_sent:
+                            state.log("already ready")
+                        else:
+                            action = actions_pb2.Action()
+                            action.ready.SetInParent()
+                            queue_action(s, action)
+                            state.ready_sent = True
                     elif state.turn != state.player_id:
                         state.log("not your turn")
                     else:

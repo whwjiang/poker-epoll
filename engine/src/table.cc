@@ -5,10 +5,12 @@
 
 #include <algorithm>
 #include <limits>
+#include <type_traits>
+#include <utility>
 
 namespace poker {
 
-Table::Table(std::mt19937_64 &rng) : rng_(rng) {}
+Table::Table(std::mt19937_64 rng) : rng_(std::move(rng)) {}
 
 bool Table::has_open_seat() const {
   return players_.num_players() < kMaxPlayers;
@@ -42,6 +44,7 @@ auto Table::remove_player(PlayerId id)
   if (auto result = players_.remove_player(id); !result) {
     return std::unexpected(result.error()); // case 4 handled
   }
+  ready_players_.erase(id);
   std::vector<Event> res{PlayerRemoved{id}};
   if (hand_state_.has_value()) {
     hand_state_->player_state[id] = PlayerState::left; // case 1, 2
@@ -73,30 +76,39 @@ auto Table::on_action(Action action)
     -> std::expected<std::vector<Event>, GameError> {
   auto result = std::visit(
       [&](auto &&a) -> std::expected<std::vector<Event>, GameError> {
-        if (!hand_state_) {
-          return std::unexpected(GameError::invalid_action);
+        using T = std::decay_t<decltype(a)>;
+        if constexpr (std::is_same_v<T, Ready>) {
+          return handle(a);
+        } else {
+          if (!hand_state_) {
+            return std::unexpected(GameError::invalid_action);
+          }
+          if (!players_.is_sat(a.id)) {
+            return std::unexpected(GameError::no_such_player);
+          }
+          prune_turn_queue();
+          if (hand_state_->turn_queue.empty()) {
+            return std::unexpected(GameError::invalid_action);
+          }
+          if (a.id != hand_state_->turn_queue.front()) {
+            return std::unexpected(GameError::out_of_turn);
+          }
+          return handle(a);
         }
-        if (!players_.is_sat(a.id)) {
-          return std::unexpected(GameError::no_such_player);
-        }
-        prune_turn_queue();
-        if (hand_state_->turn_queue.empty()) {
-          return std::unexpected(GameError::invalid_action);
-        }
-        if (a.id != hand_state_->turn_queue.front()) {
-          return std::unexpected(GameError::out_of_turn);
-        }
-        return handle(a);
       },
       action);
   if (!result) {
     return std::unexpected(result.error());
   }
   auto response = *result;
+  if (std::holds_alternative<Ready>(action)) {
+    return response;
+  }
   prune_turn_queue();
   auto remaining = active_players_in_hand();
   if (remaining.size() == 1) {
     award_chips(remaining.front(), total_committed(), response);
+    response.push_back(PhaseAdvanced{Phase::holding});
     hand_state_.reset();
     return response;
   }
@@ -109,11 +121,13 @@ auto Table::on_action(Action action)
     if (!any_active) {
       reveal_remaining_board(response);
       distribute_side_pots(response);
+      response.push_back(PhaseAdvanced{Phase::holding});
       hand_state_.reset();
       return response;
     }
     if (hand_state_->phase == Phase::river) {
       distribute_side_pots(response);
+      response.push_back(PhaseAdvanced{Phase::holding});
       hand_state_.reset();
       return response;
     }
@@ -137,6 +151,7 @@ auto Table::handle_new_hand() -> std::expected<std::vector<Event>, GameError> {
   if (hand_in_progress()) {
     return std::unexpected(GameError::hand_in_play);
   }
+  ready_players_.clear();
   hand_state_.reset();
   players_.seat_held_players();
   button_ = button_ == 0 ? *players_.get_first_player()
@@ -173,12 +188,16 @@ auto Table::handle_new_hand() -> std::expected<std::vector<Event>, GameError> {
   if (participants.size() == 2) {
     PlayerId sb = participants[0];
     PlayerId bb = participants[1];
+    events.push_back(BlindAssigned{sb, BlindRole::small});
+    events.push_back(BlindAssigned{bb, BlindRole::big});
     post_blind(sb, kSmallBlind, events);
     post_blind(bb, kBigBlind, events);
     hand_state_->turn_queue = build_turn_queue(sb);
   } else {
     PlayerId sb = participants[1 % participants.size()];
     PlayerId bb = participants[2 % participants.size()];
+    events.push_back(BlindAssigned{sb, BlindRole::small});
+    events.push_back(BlindAssigned{bb, BlindRole::big});
     post_blind(sb, kSmallBlind, events);
     post_blind(bb, kBigBlind, events);
     PlayerId first = participants[3 % participants.size()]; // left of big blind
@@ -189,6 +208,7 @@ auto Table::handle_new_hand() -> std::expected<std::vector<Event>, GameError> {
   if (hand_state_->turn_queue.empty()) {
     reveal_remaining_board(events);
     distribute_side_pots(events);
+    events.push_back(PhaseAdvanced{Phase::holding});
     hand_state_.reset();
     return events;
   }
@@ -329,6 +349,23 @@ auto Table::handle(const Timeout &t)
     return handle(Fold{id});
   }
   return handle(Bet{id, 0});
+}
+
+auto Table::handle(const Ready &r)
+    -> std::expected<std::vector<Event>, GameError> {
+  const auto &[id] = r;
+  if (hand_in_progress()) {
+    return std::unexpected(GameError::hand_in_play);
+  }
+  if (!players_.has_player(id)) {
+    return std::unexpected(GameError::no_such_player);
+  }
+  ready_players_.insert(id);
+  if (players_.num_players() < 2 ||
+      ready_players_.size() < players_.num_players()) {
+    return std::vector<Event>{};
+  }
+  return handle_new_hand();
 }
 
 void Table::deal_cards(HandState &state) {
