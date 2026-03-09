@@ -115,7 +115,8 @@ public:
   bool is_empty() const;
   bool can_start_hand() const;
   bool hand_in_progress() const;
-  auto add_player(PlayerId id) -> std::expected<Event, PlayerMgmtError>;
+  auto add_player(PlayerId id)
+      -> std::expected<std::vector<Event>, PlayerMgmtError>;
   auto remove_player(PlayerId id)
       -> std::expected<std::vector<Event>, PlayerMgmtError>;
   auto on_action(Action action) -> std::expected<std::vector<Event>, GameError>;

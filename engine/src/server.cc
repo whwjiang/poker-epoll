@@ -47,7 +47,6 @@ bool event_visible_to(const poker::Event &ev, const Conn *conn) {
   ::poker::v1::Response res;
   std::visit(
       overloaded{
-          [&res](const poker::Event &event) { append_event(res, event); },
           [&res](const std::vector<poker::Event> &events) {
             for (const auto &event : events) {
               append_event(res, event);
@@ -73,18 +72,6 @@ void publish(const Outbound &out, std::span<Conn *const> conns) {
                  [](const poker::Error &) {
                    spdlog::warn(
                        "Attempted to broadcast error to table; dropping");
-                 },
-                 [&conns](const poker::Event &event) {
-                   for (const auto &conn : conns) {
-                     if (!event_visible_to(event, conn)) {
-                       continue;
-                     }
-                     ::poker::v1::Response res;
-                     append_event(res, event);
-                     std::string msg;
-                     res.SerializeToString(&msg);
-                     publish_msg(msg, conn);
-                   }
                  },
                  [&conns](const std::vector<poker::Event> &events) {
                    for (const auto &conn : conns) {

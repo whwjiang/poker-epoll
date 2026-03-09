@@ -10,6 +10,75 @@
 
 namespace poker {
 
+namespace {
+
+constexpr std::size_t kNumPhases = 6;
+
+constexpr auto phase_index(Phase phase) -> std::size_t {
+  return static_cast<std::size_t>(phase);
+}
+
+constexpr std::array<bool, kNumPhases> kHasNextPhase = {
+    false, // holding
+    true,  // preflop
+    true,  // flop
+    true,  // turn
+    false, // river
+    false, // showdown
+};
+
+constexpr std::array<Phase, kNumPhases> kNextPhase = {
+    Phase::holding, // holding
+    Phase::flop,    // preflop -> flop
+    Phase::turn,    // flop -> turn
+    Phase::river,   // turn -> river
+    Phase::river,   // unused
+    Phase::showdown // unused
+};
+
+auto next_phase(Phase phase) -> std::optional<Phase> {
+  const auto idx = phase_index(phase);
+  if (!kHasNextPhase[idx]) {
+    return std::nullopt;
+  }
+  return kNextPhase[idx];
+}
+
+template <Phase Street>
+void append_street_deal_event(const HandState &hand, std::vector<Event> &events) {
+  if constexpr (Street == Phase::flop) {
+    std::array<cards::Card, kFlopSize> flop{};
+    std::copy_n(hand.table_cards.begin(), kFlopSize, flop.begin());
+    events.push_back(DealtFlop{flop});
+  } else if constexpr (Street == Phase::turn) {
+    events.push_back(DealtStreet{hand.table_cards[kFlopSize]});
+  } else if constexpr (Street == Phase::river) {
+    events.push_back(DealtStreet{hand.table_cards[kFlopSize + 1]});
+  }
+}
+
+void append_phase_events(const HandState &hand, Phase phase,
+                         std::vector<Event> &events) {
+  events.push_back(PhaseAdvanced{phase});
+  switch (phase) {
+  case Phase::flop:
+    append_street_deal_event<Phase::flop>(hand, events);
+    break;
+  case Phase::turn:
+    append_street_deal_event<Phase::turn>(hand, events);
+    break;
+  case Phase::river:
+    append_street_deal_event<Phase::river>(hand, events);
+    break;
+  case Phase::holding:
+  case Phase::preflop:
+  case Phase::showdown:
+    break;
+  }
+}
+
+} // namespace
+
 Table::Table(std::mt19937_64 rng) : rng_(std::move(rng)) {}
 
 bool Table::has_open_seat() const {
@@ -24,8 +93,10 @@ bool Table::can_start_hand() const {
   return !hand_in_progress() && players_.num_players() >= 2;
 }
 
-auto Table::add_player(PlayerId id) -> std::expected<Event, PlayerMgmtError> {
-  return players_.add_player(id).transform([&] { return PlayerAdded{id}; });
+auto Table::add_player(PlayerId id)
+    -> std::expected<std::vector<Event>, PlayerMgmtError> {
+  return players_.add_player(id).transform(
+      [&] { return std::vector<Event>{PlayerAdded{id}}; });
 }
 
 auto Table::remove_player(PlayerId id)
@@ -78,7 +149,7 @@ auto Table::on_action(Action action)
       [&](auto &&a) -> std::expected<std::vector<Event>, GameError> {
         using T = std::decay_t<decltype(a)>;
         if constexpr (std::is_same_v<T, Ready>) {
-          return handle(a);
+          return handle(a); // readies do not have to occur in a particular order
         } else {
           if (!hand_state_) {
             return std::unexpected(GameError::invalid_action);
@@ -154,8 +225,26 @@ auto Table::handle_new_hand() -> std::expected<std::vector<Event>, GameError> {
   ready_players_.clear();
   hand_state_.reset();
   players_.seat_held_players();
-  button_ = button_ == 0 ? *players_.get_first_player()
-                         : *players_.next_player(button_);
+  // The previous button may have left between hands. Fall back to the first
+  // seated player if the old button is no longer valid.
+  if (button_ == 0 || !players_.has_player(button_)) {
+    auto first = players_.get_first_player();
+    if (!first) {
+      return std::unexpected(GameError::not_enough_players);
+    }
+    button_ = *first;
+  } else {
+    auto next = players_.next_player(button_);
+    if (!next) {
+      auto first = players_.get_first_player();
+      if (!first) {
+        return std::unexpected(GameError::not_enough_players);
+      }
+      button_ = *first;
+    } else {
+      button_ = *next;
+    }
+  }
   HandState state{};
   state.button = button_;
   state.participants = players_.active_cycle_from(button_);
@@ -204,7 +293,6 @@ auto Table::handle_new_hand() -> std::expected<std::vector<Event>, GameError> {
     hand_state_->turn_queue = build_turn_queue(first);
   }
 
-  prune_turn_queue();
   if (hand_state_->turn_queue.empty()) {
     reveal_remaining_board(events);
     distribute_side_pots(events);
@@ -222,34 +310,13 @@ auto Table::handle_new_street()
   // create the queue for the next phase. if the queue only has one entry, then
   // the only player left gets the entire pot, and we start over
   std::vector<Event> events;
-  Phase next = hand_state_->phase;
-  switch (hand_state_->phase) {
-  case Phase::preflop:
-    next = Phase::flop;
-    break;
-  case Phase::flop:
-    next = Phase::turn;
-    break;
-  case Phase::turn:
-    next = Phase::river;
-    break;
-  case Phase::river:
-  case Phase::showdown:
-  case Phase::holding:
+  auto next = next_phase(hand_state_->phase);
+  if (!next.has_value()) {
     return std::unexpected(GameError::invalid_action);
   }
 
-  hand_state_->phase = next;
-  events.push_back(PhaseAdvanced{next});
-  if (next == Phase::flop) {
-    std::array<cards::Card, kFlopSize> flop{};
-    std::copy_n(hand_state_->table_cards.begin(), kFlopSize, flop.begin());
-    events.push_back(DealtFlop{flop});
-  } else if (next == Phase::turn) {
-    events.push_back(DealtStreet{hand_state_->table_cards[kFlopSize]});
-  } else if (next == Phase::river) {
-    events.push_back(DealtStreet{hand_state_->table_cards[kFlopSize + 1]});
-  }
+  hand_state_->phase = *next;
+  append_phase_events(*hand_state_, *next, events);
 
   for (auto &[id, amount] : hand_state_->active_bets) {
     (void)id;
@@ -262,7 +329,6 @@ auto Table::handle_new_street()
   } else {
     hand_state_->turn_queue = {};
   }
-  prune_turn_queue();
   if (!hand_state_->turn_queue.empty()) {
     events.push_back(TurnAdvanced{hand_state_->turn_queue.front()});
   }
@@ -480,39 +546,17 @@ void Table::post_blind(PlayerId id, Chips amount, std::vector<Event> &events) {
 }
 
 void Table::reveal_remaining_board(std::vector<Event> &events) {
-  while (hand_state_ && hand_state_->phase != Phase::river) {
-    Phase next = hand_state_->phase;
-    switch (hand_state_->phase) {
-    case Phase::preflop:
-      next = Phase::flop;
-      break;
-    case Phase::flop:
-      next = Phase::turn;
-      break;
-    case Phase::turn:
-      next = Phase::river;
-      break;
-    case Phase::river:
-    case Phase::showdown:
-    case Phase::holding:
+  while (hand_state_) {
+    auto next = next_phase(hand_state_->phase);
+    if (!next.has_value()) {
       return;
     }
-    hand_state_->phase = next;
-    events.push_back(PhaseAdvanced{next});
-    if (next == Phase::flop) {
-      std::array<cards::Card, kFlopSize> flop{};
-      std::copy_n(hand_state_->table_cards.begin(), kFlopSize, flop.begin());
-      events.push_back(DealtFlop{flop});
-    } else if (next == Phase::turn) {
-      events.push_back(DealtStreet{hand_state_->table_cards[kFlopSize]});
-    } else if (next == Phase::river) {
-      events.push_back(DealtStreet{hand_state_->table_cards[kFlopSize + 1]});
-    }
+    hand_state_->phase = *next;
+    append_phase_events(*hand_state_, *next, events);
   }
 }
 
 void Table::advance_turn(std::vector<Event> &events) {
-  prune_turn_queue();
   if (!hand_state_->turn_queue.empty()) {
     events.push_back(TurnAdvanced{hand_state_->turn_queue.front()});
   }

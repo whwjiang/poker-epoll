@@ -1,3 +1,4 @@
+#include <array>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -7,7 +8,6 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <array>
 #include <vector>
 
 #include "actions.pb.h"
@@ -44,7 +44,8 @@ bool try_parse_frame(Conn *c, std::string &out_msg) {
     c->in_off = sizeof(uint32_t);
   }
 
-  // Step 2: body
+  // Step 2: body - if we don't have all of the bytes for the body, do not
+  // consume the message
   if (c->in.size() < c->in_off + c->in_size) {
     return false;
   }
@@ -261,7 +262,8 @@ int main() {
   spdlog::info("Started server on port {}", PORT);
 
   while (!g_stop) {
-    int n = epoll_wait(epfd, events.data(), static_cast<int>(events.size()), -1);
+    int n =
+        epoll_wait(epfd, events.data(), static_cast<int>(events.size()), -1);
     if (n < 0) {
       if (errno == EINTR)
         continue;

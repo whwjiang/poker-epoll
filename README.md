@@ -51,3 +51,4 @@ Run a single test binary directly:
 - Support `io_uring` as a drop-in replacement for `epoll`
 - Performance test `epoll` against `io_uring`
 - Persist player purses across server restart and client sessions, and have the server remember client identities somehow (e.g. cookie persisted on client)
+- Use `std::meta` to write the `proto_translate` layer when it comes out

@@ -26,12 +26,11 @@ struct Conn {
   bool is_dead{true};
 };
 
-using Outbound =
-    std::variant<poker::Event, std::vector<poker::Event>, poker::Error>;
+using Outbound = std::variant<std::vector<poker::Event>, poker::Error>;
 
 struct ConnectResult {
   Conn *conn;
-  std::expected<poker::Event, poker::Error> result;
+  std::expected<std::vector<poker::Event>, poker::Error> result;
 };
 
 class Server {

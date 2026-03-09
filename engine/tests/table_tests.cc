@@ -220,3 +220,33 @@ TEST(Table, RemovePlayerOffTurnStillAllowsProgress) {
   ASSERT_EQ(wins.size(), 1u);
   EXPECT_EQ(wins[0].who, 3u);
 }
+
+TEST(Table, RejoinAfterLeaveCanStartNextHandWithReady) {
+  std::mt19937_64 rng(0);
+  Table table(rng);
+
+  ASSERT_TRUE(table.add_player(1));
+  ASSERT_TRUE(table.add_player(2));
+
+  auto start = table.handle_new_hand();
+  ASSERT_TRUE(start.has_value());
+
+  // End the hand so we can start the next one through Ready actions.
+  auto end = table.on_action(Timeout{1});
+  ASSERT_TRUE(end.has_value());
+
+  // Player 1 was the button in the first hand and then leaves.
+  auto removed = table.remove_player(1);
+  ASSERT_TRUE(removed.has_value());
+  ASSERT_TRUE(table.add_player(3));
+
+  auto r2 = table.on_action(Ready{2});
+  ASSERT_TRUE(r2.has_value());
+  EXPECT_TRUE(r2->empty());
+
+  auto r3 = table.on_action(Ready{3});
+  ASSERT_TRUE(r3.has_value());
+  auto phases = collect<PhaseAdvanced>(*r3);
+  ASSERT_FALSE(phases.empty());
+  EXPECT_EQ(phases[0].next, Phase::preflop);
+}
