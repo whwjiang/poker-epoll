@@ -24,7 +24,7 @@ class Deck {
 public:
   Deck() = default;
 
-  template <class URBG> void shuffle(URBG &g) {
+  template <class URBG> void shuffle(URBG &&g) {
     std::ranges::shuffle(cards_, g);
     next = 0;
   }

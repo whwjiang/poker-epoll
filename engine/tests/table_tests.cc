@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <random>
 #include <variant>
 #include <vector>
 
@@ -23,8 +22,7 @@ auto collect(const std::vector<Event> &events) -> std::vector<T> {
 } // namespace
 
 TEST(Table, StartRequiresTwoPlayers) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   EXPECT_TRUE(table.add_player(1));
   auto start = table.handle_new_hand();
@@ -33,8 +31,7 @@ TEST(Table, StartRequiresTwoPlayers) {
 }
 
 TEST(Table, StartsAndDeals) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -44,8 +41,7 @@ TEST(Table, StartsAndDeals) {
 }
 
 TEST(Table, HeadsUpBlindsAndTurn) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -66,8 +62,7 @@ TEST(Table, HeadsUpBlindsAndTurn) {
 }
 
 TEST(Table, TimeoutFoldsWhenBehind) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -85,8 +80,7 @@ TEST(Table, TimeoutFoldsWhenBehind) {
 }
 
 TEST(Table, TimeoutChecksWhenEven) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -111,8 +105,7 @@ TEST(Table, TimeoutChecksWhenEven) {
 }
 
 TEST(Table, HeadsUpAllInCompletesHand) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -134,8 +127,7 @@ TEST(Table, HeadsUpAllInCompletesHand) {
 }
 
 TEST(Table, ButtonAdvancesBetweenHands) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -164,8 +156,7 @@ TEST(Table, ButtonAdvancesBetweenHands) {
 }
 
 TEST(Table, RemovePlayerBeforeHandPreventsStart) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -179,8 +170,7 @@ TEST(Table, RemovePlayerBeforeHandPreventsStart) {
 }
 
 TEST(Table, RemovePlayerOnTurnAdvancesGame) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -200,8 +190,7 @@ TEST(Table, RemovePlayerOnTurnAdvancesGame) {
 }
 
 TEST(Table, RemovePlayerOffTurnStillAllowsProgress) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));
@@ -222,8 +211,7 @@ TEST(Table, RemovePlayerOffTurnStillAllowsProgress) {
 }
 
 TEST(Table, RejoinAfterLeaveCanStartNextHandWithReady) {
-  std::mt19937_64 rng(0);
-  Table table(rng);
+  Table table{};
 
   ASSERT_TRUE(table.add_player(1));
   ASSERT_TRUE(table.add_player(2));

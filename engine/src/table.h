@@ -110,7 +110,7 @@ struct HandState {
 
 class Table {
 public:
-  explicit Table(std::mt19937_64 rng);
+  explicit Table() = default;
   bool has_open_seat() const;
   bool is_empty() const;
   bool can_start_hand() const;
@@ -143,7 +143,6 @@ private:
   auto handle(const Ready &r) -> std::expected<std::vector<Event>, GameError>;
 
   cards::Deck deck_{};
-  std::mt19937_64 rng_;
   PlayerManager players_{};
   std::unordered_set<PlayerId> ready_players_{};
   PlayerId button_{0};

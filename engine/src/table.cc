@@ -79,8 +79,6 @@ void append_phase_events(const HandState &hand, Phase phase,
 
 } // namespace
 
-Table::Table(std::mt19937_64 rng) : rng_(std::move(rng)) {}
-
 bool Table::has_open_seat() const {
   return players_.num_players() < kMaxPlayers;
 }
@@ -185,21 +183,24 @@ auto Table::on_action(Action action)
   }
   // advance the hand phase if that was the last player
   if (hand_state_->turn_queue.size() == 0) {
+    auto finalize_showdown = [&](bool reveal_board) {
+      if (reveal_board) {
+        reveal_remaining_board(response);
+      }
+      distribute_side_pots(response);
+      response.push_back(PhaseAdvanced{Phase::holding});
+      hand_state_.reset();
+    };
     bool any_active =
         std::any_of(remaining.begin(), remaining.end(), [&](PlayerId id) {
           return hand_state_->player_state.at(id) == PlayerState::active;
         });
     if (!any_active) {
-      reveal_remaining_board(response);
-      distribute_side_pots(response);
-      response.push_back(PhaseAdvanced{Phase::holding});
-      hand_state_.reset();
+      finalize_showdown(true);
       return response;
     }
     if (hand_state_->phase == Phase::river) {
-      distribute_side_pots(response);
-      response.push_back(PhaseAdvanced{Phase::holding});
-      hand_state_.reset();
+      finalize_showdown(false);
       return response;
     }
     auto advance = handle_new_street();
@@ -436,7 +437,8 @@ auto Table::handle(const Ready &r)
 
 void Table::deal_cards(HandState &state) {
   state.player_holes.clear();
-  deck_.shuffle(rng_);
+  std::random_device rd;
+  deck_.shuffle(std::mt19937_64(rd()));
   // deal two cards starting from the button
   state.player_holes[state.button] = *deck_.deal_hole();
   for (auto it = std::next(state.participants.begin());

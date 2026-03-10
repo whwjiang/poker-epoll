@@ -134,7 +134,7 @@ auto Server::handle_connect(const int cfd) -> ConnectResult {
   auto it = tables_.find(tid);
   if (it == tables_.end()) {
     tid = next_table_id_++;
-    it = tables_.emplace(tid, poker::Table(std::mt19937_64{0})).first;
+    it = tables_.emplace(tid, poker::Table{}).first;
     spdlog::info("Created new table {}", tid);
   }
   // seat the player at the found table or return an error
